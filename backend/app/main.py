@@ -1,9 +1,37 @@
+# ================================
+# 🔹 Imports
+# ================================
 from fastapi import FastAPI
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-import uuid
 
+# 🔹 Load environment variables (.env)
+from dotenv import load_dotenv
+import os
+
+# 🔹 OpenAI client
+from openai import OpenAI
+
+# ================================
+# 🔹 Load .env file
+# ================================
+load_dotenv()
+
+# ================================
+# 🔹 Initialize OpenAI client
+# ================================
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")  # reads from .env
+)
+
+# ================================
+# 🔹 Create FastAPI app
+# ================================
 app = FastAPI()
 
+# ================================
+# 🔹 Enable CORS (frontend → backend)
+# ================================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -12,33 +40,51 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-notes = []
+# ================================
+# 🔹 Request model (input format)
+# ================================
+class AIRequest(BaseModel):
+    question: str
 
+# ================================
+# 🔹 Root endpoint (test)
+# ================================
 @app.get("/")
 def home():
     return {"message": "Backend is running"}
 
-@app.get("/notes")
-def get_notes():
-    return notes
+# ================================
+# 🔹 AI endpoint (REAL AI)
+# ================================
+@app.post("/ask-ai")
+def ask_ai(request: AIRequest):
+    """
+    Receives a question from frontend
+    Sends it to OpenAI
+    Returns AI-generated answer
+    """
+    try:
+        # 🔹 Send request to OpenAI
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",  # fast + cheap model
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a helpful AI assistant for an AI Knowledge Hub app."
+                },
+                {
+                    "role": "user",
+                    "content": request.question
+                },
+            ],
+        )
 
-@app.post("/notes")
-def create_note(note: dict):
-    for n in notes:
-        if n["title"] == note["title"] and n["content"] == note["content"]:
-            return {"message": "Duplicate note ignored"}
+        # 🔹 Extract AI response text safely
+        answer = response.choices[0].message.content
 
-    note["id"] = str(uuid.uuid4())
-    notes.append(note)
+        # 🔹 Return to frontend
+        return {"answer": answer}
 
-    return {"message": "Note added", "note": note}
-
-@app.get("/search")
-def search_notes(query: str):
-    results = [
-        n for n in notes
-        if query.lower() in n["title"].lower()
-        or query.lower() in n["content"].lower()
-    ]
-
-    return {"results": results}
+    except Exception as e:
+        # 🔴 If something fails, return readable error
+        return {"answer": f"AI error: {str(e)}"}

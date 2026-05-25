@@ -1,101 +1,406 @@
-// 🔹 Import React hooks for state and lifecycle
+// ================================
+// Import React hooks
+// ================================
 import { useEffect, useState } from "react";
 
-// 🔹 Import API functions (connect frontend → backend)
-import { getNotes, createNote, searchNotes } from "../api/api";
+// ================================
+// Import Authentication Components
+// ================================
+import Register from "../components/Register";
+import Login from "../components/Login";
 
-// 🔹 Import UI components
-import NoteForm from "../components/NoteForm";
+// ================================
+// Import API Functions
+// ================================
+import {
+  getNotes,
+  createNote,
+  searchNotes,
+  semanticSearchNotes
+} from "../api/api";
+// ================================
+// Import UI Components
+// ================================
 import NoteList from "../components/NoteList";
-import SearchBar from "../components/SearchBar";
-import AIAssistant from "../components/AIAssistant"; // ✅ ADD THIS
+import AIAssistant from "../components/AIAssistant";
 
 function Home() {
-
-  // 🧠 State to store ALL notes from backend
+  // ================================
+  // Notes State
+  // ================================
   const [notes, setNotes] = useState([]);
 
-  // 🔍 State to store SEARCH results
+  // ================================
+  // Search State
+  // ================================
   const [searchResults, setSearchResults] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [hasSearched, setHasSearched] = useState(false);
 
-  // 🔥 Runs once when page loads
-  // (like "on start" of the app)
+  // ================================
+  // Add Note State
+  // ================================
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+
+  // ================================
+  // Dark Mode State
+  // ================================
+  const [darkMode, setDarkMode] = useState(false);
+
+  // ================================
+  // Authentication State
+  // ================================
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Stores AI semantic search results
+  const [semanticResults, setSemanticResults] = useState([]);
+
+  // ================================
+  // Load Data When Page Opens
+  // ================================
   useEffect(() => {
-    loadNotes(); // call function to get notes
+    loadNotes();
+
+    // Check if JWT token exists in browser storage
+    const token = localStorage.getItem("token");
+
+    // If token exists, user is considered logged in
+    if (token) {
+      setIsLoggedIn(true);
+    }
   }, []);
 
-  // 📥 Fetch all notes from backend API
+  // ================================
+  // Load Notes From Backend
+  // ================================
   async function loadNotes() {
     try {
-      const data = await getNotes(); // call API
-      setNotes(data || []); // update state
+      const data = await getNotes();
+
+      // Reverse notes so newest notes show first
+      setNotes(Array.isArray(data) ? [...data].reverse() : []);
     } catch (error) {
       console.error("Error loading notes:", error);
+      setNotes([]);
     }
   }
 
-  // ➕ Add a new note
-  async function handleAddNote(note) {
+  // ================================
+  // Handle Search
+  // ================================
+  async function handleSearch(event) {
+    event.preventDefault();
+
     try {
-      await createNote(note); // send note to backend
-      await loadNotes(); // reload notes after adding
+      setHasSearched(true);
+
+      // Prevent empty search
+      if (!searchQuery.trim()) {
+        setSearchResults([]);
+        return;
+      }
+
+      const data = await searchNotes(searchQuery);
+
+      setSearchResults(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Search error:", error);
+      setSearchResults([]);
+    }
+  }
+
+  // ================================
+  // AI Semantic Search
+  // ================================
+   const handleSemanticSearch = async (query) => {
+
+     // Prevent empty searches
+     if (!query.trim()) {
+        setSemanticResults([]);
+        return;
+     }
+
+    try {
+
+    // Call backend semantic search API
+    const results = await semanticSearchNotes(query);
+
+    // Save results
+    setSemanticResults(results);
+
+    } catch (error) {
+
+     console.error("Semantic search error:", error);
+    }
+  };
+
+  // ================================
+  // Handle Add Note
+  // ================================
+  async function handleAddNote(event) {
+    event.preventDefault();
+
+    try {
+      // Require both title and content
+      if (!title.trim() || !content.trim()) {
+        alert("Please enter both title and content.");
+        return;
+      }
+
+      const newNote = {
+        title: title,
+        content: content,
+      };
+
+      // Send note to backend
+      await createNote(newNote);
+
+      // Clear form fields
+      setTitle("");
+      setContent("");
+
+      // Reload notes after adding
+      await loadNotes();
+
+      // Clear search results after adding a note
+      setSearchResults([]);
+      setHasSearched(false);
     } catch (error) {
       console.error("Error adding note:", error);
     }
   }
 
-  // 🔍 Search notes from backend
-  async function handleSearch(query) {
-    try {
-      const data = await searchNotes(query); // call search API
+  // ================================
+  // Handle Logout
+  // ================================
+  const handleLogout = () => {
+    // Remove JWT token
+    localStorage.removeItem("token");
 
-      // Save results (array of notes)
-      setSearchResults(data.results || []);
-    } catch (error) {
-      console.error("Search error:", error);
-      setSearchResults([]); // reset if error
-    }
-  }
+    // Update frontend login state
+    setIsLoggedIn(false);
+  };
 
-  // 🎨 UI rendering starts here
+  // ================================
+  // Page UI
+  // ================================
   return (
-    <div className="container">
+    <div className={darkMode ? "app-layout dark" : "app-layout"}>
 
-      {/* 🧾 App Title */}
-      <h1>AI Knowledge Hub</h1>
+      {/* ================================ */}
+      {/* Sidebar Navigation */}
+      {/* ================================ */}
+      <div className="sidebar">
+        <h2>🧠 AI Hub</h2>
 
-      {/* 🔍 Search input component */}
-      <SearchBar onSearch={handleSearch} />
+        <ul>
+          <li><a href="#home">🏠 Home</a></li>
+          <li><a href="#notes">📝 Notes</a></li>
+          <li><a href="#ai-chat">🤖 AI Chat</a></li>
+          <li><a href="#search">🔍 Search</a></li>
+          <li><a href="#settings">⚙️ Settings</a></li>
 
-      {/* 🔎 Search Results Section */}
-      <h3 className="section">Search Results</h3>
+          {!isLoggedIn && (
+            <>
+              <li><a href="#auth">👤 Register</a></li>
+              <li><a href="#auth">🔐 Login</a></li>
+            </>
+          )}
 
-      {/* ⚠️ If no results → show message */}
-      {searchResults.length === 0 ? (
-        <p>No results found.</p>
-      ) : (
-        // 🔁 Loop through results and display each note
-        searchResults.map((note, index) => (
-          <div key={index} className="card">
-            <h4>{note.title}</h4>
-            <p>{note.content}</p>
-          </div>
-        ))
-      )}
+          {isLoggedIn && (
+            <li>
+              <button onClick={handleLogout}>
+                🚪 Logout
+              </button>
+            </li>
+          )}
+        </ul>
+      </div>
 
-      {/* ➕ Add Note Form */}
-      <NoteForm onAddNote={handleAddNote} />
+      {/* ================================ */}
+      {/* Main Content */}
+      {/* ================================ */}
+      <div id="home" className="main-content">
 
-      {/* 📚 All Notes Section */}
-      <h3 className="section">Notes</h3>
+        {/* ================================ */}
+        {/* Header Section */}
+        {/* ================================ */}
+        <section className="card section">
+          <h1>AI Knowledge Hub</h1>
 
-      {/* 📄 Display all notes */}
-      <NoteList notes={notes} />
-       
-       <AIAssistant />
+          <p>
+             Organize your notes, search information instantly, and use AI to help answer questions, explain concepts, and support your learning and projects.
+          </p>
+
+        </section>
+
+        {/* ================================ */}
+        {/* Search Section */}
+        {/* ================================ */}
+        <section id="search" className="card section">
+          <h2>Search</h2>
+
+          <form onSubmit={handleSearch}>
+            <input
+              type="text"
+              placeholder="Search notes..."
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+
+            <button type="submit">Search</button>
+          </form>
+
+          <h3>Search Results</h3>
+
+          {hasSearched && searchResults.length === 0 && (
+            <p>No results found.</p>
+          )}
+
+          {searchResults.map((note, index) => (
+            <div key={index} className="note-card">
+              <h4>{note.title}</h4>
+              <p>{note.content}</p>
+            </div>
+          ))}
+        </section>
+
+        {/* ================================= */}
+        {/* AI Semantic Search */}
+        {/* ================================= */}
+
+        <div className="semantic-search">
+
+          <h3>AI Semantic Search</h3>
+
+          <input
+           type="text"
+           placeholder="Ask AI to find related notes..."
+           onChange={(e) => handleSemanticSearch(e.target.value)}
+          />
+
+        </div>
+
+        {/* ================================= */}
+        {/* Semantic Search Results */}
+        {/* ================================= */}
+
+        {semanticResults.length > 0 && (
+        <div className="semantic-results">
+
+        <h3>AI Related Notes</h3>
+
+        {semanticResults.map((note) => (
+        <div key={note.id} className="semantic-note">
+
+        <h4>{note.title}</h4>
+
+        <p>{note.content}</p>
+
+        <small>
+          Similarity Score: {note.similarity.toFixed(2)}
+        </small>
+
+       </div>
+      ))}
+
+      </div>
+     )}
+
+        {/* ================================ */}
+        {/* Add Note Section */}
+        {/* ================================ */}
+        <section id="add-note" className="card section">
+          <h2>Add Note</h2>
+
+          <form onSubmit={handleAddNote}>
+            <input
+              type="text"
+              placeholder="Title"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+            />
+
+            <textarea
+              placeholder="Content"
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+            />
+
+            <button type="submit">Add</button>
+          </form>
+        </section>
+
+        {/* ================================ */}
+        {/* Notes Section */}
+        {/* ================================ */}
+        <section id="notes" className="card section">
+          <h2>Notes</h2>
+          <NoteList notes={notes} />
+        </section>
+
+        {/* ================================ */}
+        {/* AI Assistant Section */}
+        {/* ================================ */}
+        <section id="ai-chat">
+          <AIAssistant />
+        </section>
+
+        {/* ================================ */}
+        {/* Authentication Section */}
+        {/* ================================ */}
+        <section id="auth" className="auth-section">
+          {isLoggedIn ? (
+            <div>
+              <h2>✅ User Logged In</h2>
+
+              <button onClick={handleLogout}>
+                Logout
+              </button>
+            </div>
+          ) : (
+            <div>
+              <Register />
+              <Login />
+            </div>
+          )}
+        </section>
+
+        {/* ================================ */}
+        {/* Settings Section */}
+        {/* ================================ */}
+        <section id="settings" className="card section">
+           <h2>⚙️ Settings</h2>
+
+           <p>
+             Manage your app preferences and authentication status.
+           </p>
+
+           <button
+             className="dark-mode-btn"
+             onClick={() => setDarkMode(!darkMode)}
+           >
+            {darkMode ? "☀️ Switch to Light Mode" : "🌙 Switch to Dark Mode"}
+           </button>
+
+           <p>
+             Status: {isLoggedIn ? "✅ Logged In" : "❌ Not Logged In"}
+           </p>
+
+           {isLoggedIn && (
+            <button onClick={handleLogout}>
+              🚪 Logout
+          </button>
+         )}
+      </section>
+
+      </div>
     </div>
   );
 }
 
-// 🔹 Export component so App.jsx can use it
+// ================================
+// Export Home Component
+// ================================
 export default Home;

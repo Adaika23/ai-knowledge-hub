@@ -1,96 +1,174 @@
-// ================================
+// ========================================
 // 🌐 Backend API Base URL
-// ================================
-// Central place to change backend URL if needed
-const BASE_URL = "http://127.0.0.1:8000";
+// ========================================
+// This is the FastAPI backend server URL.
+const API_URL = "http://127.0.0.1:8000";
 
 
-// ================================
-// 📥 Get all notes
-// ================================
+// ========================================
+// 🔐 Get Saved JWT Token
+// ========================================
+// After login, the token should be saved in localStorage.
+// Protected backend routes require this token.
+function getAuthHeaders() {
+  const token = localStorage.getItem("token");
+
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+
+// ========================================
+// 📚 Get All Notes - Protected
+// ========================================
+// Sends GET request to FastAPI:
+// GET /notes
 export async function getNotes() {
-  try {
-    const response = await fetch(`${BASE_URL}/notes`);
+  const response = await fetch(`${API_URL}/notes`, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  });
 
-    // Check if request failed
-    if (!response.ok) {
-      throw new Error("Failed to fetch notes");
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error("Error getting notes:", error);
-    return []; // return empty array instead of crashing UI
+  if (!response.ok) {
+    throw new Error("Failed to fetch notes");
   }
+
+  return await response.json();
 }
 
 
-// ================================
-// ➕ Create new note
-// ================================
+// ========================================
+// 📝 Create New Note - Protected
+// ========================================
+// Sends POST request to FastAPI:
+// POST /notes
 export async function createNote(note) {
-  try {
-    const response = await fetch(`${BASE_URL}/notes`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(note),
-    });
+  const response = await fetch(`${API_URL}/notes`, {
+    method: "POST",
+    headers: getAuthHeaders(),
 
-    if (!response.ok) {
-      throw new Error("Failed to create note");
-    }
+    // Converts JavaScript object into JSON
+    body: JSON.stringify(note),
+  });
 
-    return await response.json();
-  } catch (error) {
-    console.error("Error creating note:", error);
-    return null;
+  if (!response.ok) {
+    throw new Error("Failed to create note");
   }
+
+  return await response.json();
 }
 
 
-// ================================
-// 🔍 Search notes
-// ================================
+// ========================================
+// 🔎 Search Notes - Protected
+// ========================================
+// Sends GET request to FastAPI:
+// GET /search?query=yourSearchText
 export async function searchNotes(query) {
-  try {
-    const response = await fetch(
-      `${BASE_URL}/search?query=${encodeURIComponent(query)}`
-    );
-
-    if (!response.ok) {
-      throw new Error("Search failed");
+  const response = await fetch(
+    `${API_URL}/search?query=${encodeURIComponent(query)}`,
+    {
+      method: "GET",
+      headers: getAuthHeaders(),
     }
+  );
 
-    return await response.json();
-  } catch (error) {
-    console.error("Error searching notes:", error);
-    return [];
+  if (!response.ok) {
+    throw new Error("Failed to search notes");
   }
+
+  return await response.json();
 }
 
 
-// ================================
-// 🤖 Ask AI (NEW - Phase 2)
-// ================================
+// ========================================
+// 🤖 Ask AI Assistant - Public for Now
+// ========================================
+// Sends POST request to FastAPI:
+// POST /ask-ai
 export async function askAI(question) {
-  try {
-    const response = await fetch(`${BASE_URL}/ask-ai`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ question }),
-    });
+  const response = await fetch(`${API_URL}/ask-ai`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
 
-    if (!response.ok) {
-      throw new Error("AI request failed");
-    }
+    body: JSON.stringify({ question }),
+  });
 
-    return await response.json();
-  } catch (error) {
-    console.error("Error asking AI:", error);
-    return { answer: "Error connecting to AI server." };
+  if (!response.ok) {
+    throw new Error("Failed to ask AI");
   }
+
+  return await response.json();
+}
+
+
+// ========================================
+// 👤 Register User - Public
+// ========================================
+// Sends POST request to FastAPI:
+// POST /register
+export async function registerUser(userData) {
+  const response = await fetch(`${API_URL}/register`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+
+    body: JSON.stringify(userData),
+  });
+
+  if (!response.ok) {
+    throw new Error("Registration failed");
+  }
+
+  return await response.json();
+}
+
+
+// ========================================
+// 🔐 Login User - Public
+// ========================================
+// Sends POST request to FastAPI:
+// POST /login
+export async function loginUser(userData) {
+  const response = await fetch(`${API_URL}/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+
+    body: JSON.stringify(userData),
+  });
+
+  if (!response.ok) {
+    throw new Error("Login failed");
+  }
+
+  return await response.json();
+}
+
+
+// ========================================
+// 🧠 AI Semantic Search Notes - Protected
+// ========================================
+// Sends GET request to FastAPI:
+// GET /semantic-search?query=yourSearchText
+export async function semanticSearchNotes(query) {
+  const response = await fetch(
+    `${API_URL}/semantic-search?query=${encodeURIComponent(query)}`,
+    {
+      method: "GET",
+      headers: getAuthHeaders(),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Semantic search failed");
+  }
+
+  return await response.json();
 }

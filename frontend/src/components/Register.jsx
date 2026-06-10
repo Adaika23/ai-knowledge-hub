@@ -3,14 +3,16 @@ import { useState } from "react";
 // ================================
 // Register Component
 // ================================
-function Register() {
+// Allows new users to create an account.
+// Receives onBackToLogin from Home.jsx
+// so users can return to Login page.
+function Register({ onBackToLogin }) {
 
   // ================================
   // State Management
   // ================================
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-
   const [message, setMessage] = useState("");
 
   // ================================
@@ -20,8 +22,13 @@ function Register() {
     e.preventDefault();
 
     try {
+      // Validate input
+      if (!username.trim() || !password.trim()) {
+        setMessage("Please enter both username and password.");
+        return;
+      }
 
-      // Send request to FastAPI backend
+      // Send registration request
       const response = await fetch(
         "http://127.0.0.1:8000/register",
         {
@@ -38,15 +45,26 @@ function Register() {
         }
       );
 
-      // Convert response to JSON
+      // Convert response
       const data = await response.json();
 
-      // Show success message
-      setMessage(data.message);
+      // Handle backend error
+      if (!response.ok) {
+        setMessage(data.detail || "Registration failed");
+        return;
+      }
+
+      // Success
+      setMessage(
+        data.message ||
+        "Account created successfully. Please log in."
+      );
+
+      // Clear fields
+      setUsername("");
+      setPassword("");
 
     } catch (error) {
-
-      // Show error if request fails
       setMessage("Registration failed");
     }
   };
@@ -55,37 +73,50 @@ function Register() {
   // UI
   // ================================
   return (
-    <div className="auth-container">
+    <div className="register-card">
 
-      <h2>Register</h2>
+      <h2>Create Account</h2>
 
       <form onSubmit={handleRegister}>
 
-        {/* Username Input */}
+        {/* Username */}
         <input
           type="text"
-          placeholder="Enter username"
+          placeholder="Create username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
         />
 
-        {/* Password Input */}
+        {/* Password */}
         <input
           type="password"
-          placeholder="Enter password"
+          placeholder="Create password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        {/* Submit Button */}
+        {/* Register Button */}
         <button type="submit">
           Register
         </button>
 
       </form>
 
-      {/* Message */}
-      <p>{message}</p>
+      {/* Registration Message */}
+      {message && (
+        <p className="auth-message">
+          {message}
+        </p>
+      )}
+
+      {/* Back To Login */}
+      <button
+        type="button"
+        className="auth-link-button"
+        onClick={onBackToLogin}
+      >
+        ← Back to Login
+      </button>
 
     </div>
   );

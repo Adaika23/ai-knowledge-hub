@@ -1,32 +1,36 @@
-/*
-========================================
-NOTE LIST COMPONENT
-Displays notes only
-========================================
-*/
-
-function NoteList({ notes }) {
-
-  // Show message if there are no notes
-  if (!notes || notes.length === 0) {
-    return <p>No notes yet.</p>;
-  }
-
+// ================================
+// Note List Component
+// ================================
+// Receives notes from Home.jsx
+// Displays each note
+// Allows deleting a note
+function NoteList({ notes, onDeleteNote }) {
   return (
-    <div>
+    <div className="notes-list">
 
-      {/* Loop through all notes */}
-      {notes.map((note, index) => (
-        <div key={index} className="note-card">
+      {notes.length === 0 ? (
+        <p>No notes yet.</p>
+      ) : (
+        notes.map((note) => (
+          <div key={note.id} className="note-card">
 
-          {/* Note title */}
-          <h4>{note.title}</h4>
+            {/* Note Title */}
+            <h3>{note.title}</h3>
 
-          {/* Note content */}
-          <p>{note.content}</p>
+            {/* Note Content */}
+            <p>{note.content}</p>
 
-        </div>
-      ))}
+            {/* Delete Button */}
+            <button
+              className="delete-btn"
+              onClick={() => onDeleteNote(note.id)}
+            >
+              Delete
+            </button>
+
+          </div>
+        ))
+      )}
 
     </div>
   );

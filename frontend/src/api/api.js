@@ -8,10 +8,10 @@ const API_URL = "http://127.0.0.1:8000";
 // ========================================
 // 🔐 Get Saved JWT Token
 // ========================================
-// After login, the token should be saved in localStorage.
-// Protected backend routes require this token.
+// After login, the token should be saved in sessionStorage.
+// The user stays logged in until the browser/tab is closed.
 function getAuthHeaders() {
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
 
   return {
     "Content-Type": "application/json",
@@ -84,16 +84,15 @@ export async function searchNotes(query) {
 
 
 // ========================================
-// 🤖 Ask AI Assistant - Public for Now
+// 🤖 Ask AI Assistant - Protected
 // ========================================
 // Sends POST request to FastAPI:
 // POST /ask-ai
+// Requires JWT token because AI now reads user notes.
 export async function askAI(question) {
   const response = await fetch(`${API_URL}/ask-ai`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: getAuthHeaders(),
 
     body: JSON.stringify({ question }),
   });
@@ -170,5 +169,31 @@ export async function semanticSearchNotes(query) {
     throw new Error("Semantic search failed");
   }
 
+  return await response.json();
+}
+
+// ========================================
+// 🗑 Delete Note
+// ========================================
+// Sends DELETE request to FastAPI:
+// DELETE /notes/{id}
+// Requires JWT authentication
+export async function deleteNote(noteId) {
+
+  const response = await fetch(
+    `${API_URL}/notes/${noteId}`,
+    {
+      method: "DELETE",
+
+      headers: getAuthHeaders(),
+    }
+  );
+
+  // If request fails
+  if (!response.ok) {
+    throw new Error("Failed to delete note");
+  }
+
+  // Return success response
   return await response.json();
 }

@@ -376,16 +376,72 @@ def semantic_search(
     )
 
     # Return top 5 most similar notes
-    return scored_notes[:5]
+    return {
+         "results": scored_notes[:5]
+    }
 
 # ================================
-# AI Assistant Route
+# 🤖 AI Assistant Route - RAG
 # ================================
 @app.post("/ask-ai")
-def ask_ai(request: AIRequest):
+def ask_ai(
+    request: AIRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
 
     try:
         today = datetime.now().strftime("%B %d, %Y")
+
+        # Generate embedding for the user's question
+        question_embedding = generate_embedding(request.question)
+
+        # Get only the logged-in user's notes
+        user_notes = db.query(Note).filter(
+            Note.user_id == current_user.id
+        ).all()
+
+        # If user has no notes
+        if not user_notes:
+            return {
+                "answer": "You do not have any saved notes yet."
+            }
+
+        # Score notes by semantic similarity
+        scored_notes = []
+
+        for note in user_notes:
+            similarity = cosine_similarity(
+                question_embedding,
+                note.embedding
+            )
+
+            scored_notes.append({
+                "title": note.title,
+                "content": note.content,
+                "similarity": similarity
+            })
+
+        # Sort best matches first
+        scored_notes.sort(
+            key=lambda note: note["similarity"],
+            reverse=True
+        )
+
+        # Use top 5 notes
+        top_notes = scored_notes[:5]
+
+        # Build notes context
+        notes_context = "\n\n".join(
+            [
+                f"Title: {note['title']}\nContent: {note['content']}"
+                for note in top_notes
+            ]
+        )
+
+        # Debug check in terminal
+        print("RAG NOTES CONTEXT:")
+        print(notes_context)
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -393,23 +449,32 @@ def ask_ai(request: AIRequest):
                 {
                     "role": "system",
                     "content": (
-                        "You are a helpful AI assistant for an AI Knowledge Hub app. "
+                        "You are an AI assistant for a personal notes app. "
                         f"Today's date is {today}. "
-                        "If the user asks about today's date, use this date."
+                        "You MUST answer using the saved notes provided. "
+                        "If the saved notes mention the topic, summarize the notes. "
+                        "Do not say you cannot access notes."
                     ),
                 },
                 {
                     "role": "user",
-                    "content": request.question,
+                    "content": (
+                        f"User question: {request.question}\n\n"
+                        f"Saved notes:\n{notes_context}\n\n"
+                        "Answer based only on the saved notes above."
+                    ),
                 },
             ],
         )
 
-        return {"answer": response.choices[0].message.content}
+        return {
+            "answer": response.choices[0].message.content
+        }
 
     except Exception as e:
-        return {"answer": f"AI error: {str(e)}"}
-
+        return {
+            "answer": f"AI error: {str(e)}"
+        }
 
 # ================================
 # Register User - PostgreSQL

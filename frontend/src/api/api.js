@@ -197,3 +197,69 @@ export async function deleteNote(noteId) {
   // Return success response
   return await response.json();
 }
+
+// ================================
+// 💬 Get Chat History
+// ================================
+export const getChatHistory = async () => {
+  const token = localStorage.getItem("token");
+
+  const response = await fetch(
+    "http://127.0.0.1:8000/chat-history",
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return response.json();
+};
+
+// ================================
+// 🗑️ Clear Chat History
+// ================================
+export const clearChatHistory = async () => {
+  const token = localStorage.getItem("token");
+
+  const response = await fetch(
+    "http://127.0.0.1:8000/chat-history",
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return response.json();
+};
+
+// ================================
+// 📄 Upload Document
+// ================================
+export const uploadDocument = async (file) => {
+  const token = sessionStorage.getItem("token");
+
+  if (!token) {
+    return {
+      error: "You must be logged in before uploading documents.",
+    };
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(
+    "http://127.0.0.1:8000/upload-document",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    }
+  );
+
+  return response.json();
+};

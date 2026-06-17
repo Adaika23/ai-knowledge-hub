@@ -54,37 +54,38 @@ def home():
     return {"message": "Backend is running"}
 
 # ================================
-# 🔹 AI endpoint (REAL AI)
+# 🤖 AI Assistant Route
 # ================================
 @app.post("/ask-ai")
 def ask_ai(request: AIRequest):
     """
-    Receives a question from frontend
-    Sends it to OpenAI
-    Returns AI-generated answer
+    Receives a question from the frontend,
+    sends it to OpenAI,
+    and returns the AI-generated answer.
     """
+
     try:
-        # 🔹 Send request to OpenAI
         response = client.chat.completions.create(
-            model="gpt-4o-mini",  # fast + cheap model
+            model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a helpful AI assistant for an AI Knowledge Hub app."
+                    "content": (
+                        "You are a helpful AI assistant for an AI Knowledge Hub app."
+                    ),
                 },
                 {
                     "role": "user",
-                    "content": request.question
+                    "content": request.question,
                 },
             ],
         )
 
-        # 🔹 Extract AI response text safely
-        answer = response.choices[0].message.content
-
-        # 🔹 Return to frontend
-        return {"answer": answer}
+        return {
+            "answer": response.choices[0].message.content
+        }
 
     except Exception as e:
-        # 🔴 If something fails, return readable error
-        return {"answer": f"AI error: {str(e)}"}
+        return {
+            "answer": f"AI error: {str(e)}"
+        }

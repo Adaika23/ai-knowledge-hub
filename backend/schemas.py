@@ -5,6 +5,9 @@
 
 from pydantic import BaseModel
 
+# Add the datetime
+from datetime import datetime
+
 
 # =========================================
 # 👤 User Registration Schema
@@ -56,3 +59,19 @@ class NoteResponse(BaseModel):
 # =========================================
 class AIRequest(BaseModel):
     question: str
+
+# ================================
+# 💬 Chat Response Schema
+# ================================
+class ChatResponse(BaseModel):
+    """
+    Chat message returned to the frontend.
+    """
+
+    id: int
+    sender: str
+    message: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True    

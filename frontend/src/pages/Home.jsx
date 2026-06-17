@@ -15,6 +15,7 @@ import Login from "../components/Login";
 import NoteList from "../components/NoteList";
 import AIAssistant from "../components/AIAssistant";
 import SemanticSearch from "../components/SemanticSearch";
+import DocumentUpload from "../components/DocumentUpload";
 
 // ================================
 // Import API Functions
@@ -242,6 +243,7 @@ function Home() {
           <li><a href="#notes">📝 Notes</a></li>
           <li><a href="#search">🔍 Search</a></li>
           <li><a href="#semantic-search">🧠 Semantic Search</a></li>
+          <li><a href="#upload-document">📄 Upload Document</a></li>   {/* NEW */}
           <li><a href="#ai-chat">🤖 AI Chat</a></li>
           <li><a href="#settings">⚙️ Settings</a></li>
         </ul>
@@ -337,7 +339,11 @@ function Home() {
         <section id="semantic-search" className="card section">
           <SemanticSearch />
         </section>
-
+        {/*DocumentUpload Section */}
+        <div id="upload-document">
+          <DocumentUpload />
+        </div>
+        
         {/* ================================ */}
         {/* AI Assistant Section */}
         {/* ================================ */}

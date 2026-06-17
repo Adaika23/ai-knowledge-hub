@@ -1166,3 +1166,52 @@ section {
   color: #64748b;
   line-height: 1.5;
 }
+
+/* ========================================
+   🗑️ Clear Chat Button
+======================================== */
+
+.clear-chat-btn {
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.2s;
+}
+
+.clear-chat-btn:hover {
+  background: #dc2626;
+}
+
+.clear-chat-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ai-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.clear-chat-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.clear-chat-btn:hover {
+  background: #dc2626;
+}
+
+.clear-chat-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

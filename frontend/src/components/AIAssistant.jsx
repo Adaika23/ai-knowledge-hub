@@ -1,6 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { askAI } from "../api/api";
+import {
+  askAI,
+  getChatHistory,
+  clearChatHistory,
+} from "../api/api";
 
 function AIAssistant() {
   // ================================
@@ -16,6 +20,43 @@ function AIAssistant() {
   // Loading state while waiting for AI response
   const [loading, setLoading] = useState(false);
 
+  // Clearing 
+  const [clearing, setClearing] = useState(false);
+
+  // Automatically scroll to newest message
+  const chatEndRef = useRef(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
+   }, [messages, loading]);
+
+   // ================================
+   // 💬 Load Chat History
+   // ================================
+   useEffect(() => {
+     const loadHistory = async () => {
+       try {
+         const history = await getChatHistory();
+
+         if (Array.isArray(history)) {
+           setMessages(
+             history.map((chat) => ({
+               sender: chat.sender,
+               message: chat.message,
+               created_at: chat.created_at,
+             }))
+           );
+         }
+       } catch (error) {
+         console.error("Failed to load chat history:", error);
+       }
+     };
+
+     loadHistory();
+   }, []);
+
   // ================================
   // Format Timestamp
   // ================================
@@ -25,6 +66,36 @@ function AIAssistant() {
       minute: "2-digit",
     });
   }
+
+  // ================================
+  // 🗑️ Clear Chat
+  // ================================
+  const handleClearChat = async () => {
+   const confirmed = window.confirm(
+     "Are you sure you want to delete all chat history?"
+   );
+
+   if (!confirmed) {
+     return;
+   }
+
+   try {
+     // Start clearing state
+     setClearing(true);
+
+     // Delete chat history from backend
+     await clearChatHistory();
+
+     // Clear React state
+     setMessages([]);
+     setQuestion("");
+   } catch (error) {
+     console.error("Failed to clear chat:", error);
+   } finally {
+     // Reset clearing state
+     setClearing(false);
+   }
+};
 
   // ================================
   // Handle AI Request
@@ -47,8 +118,16 @@ function AIAssistant() {
       time: getCurrentTime(),
     };
 
-    // Add user message to bottom of chat
-    setMessages((prev) => [...prev, userMessage]);
+    // Create temporary AI loading message
+    const thinkingMessage = {
+      sender: "ai",
+      text: "Thinking...",
+      time: getCurrentTime(),
+      isLoading: true,
+    };
+
+    // Add user message and thinking message immediately
+    setMessages((prev) => [...prev, userMessage, thinkingMessage]);
 
     // Clear input immediately after sending
     setQuestion("");
@@ -60,26 +139,33 @@ function AIAssistant() {
       // Send request to backend
       const data = await askAI(trimmedQuestion);
 
-      // Create AI response message
-      const aiMessage = {
-        sender: "ai",
-        text: data?.answer || "No AI response received.",
-        time: getCurrentTime(),
-      };
-
-      // Add AI response to bottom of chat
-      setMessages((prev) => [...prev, aiMessage]);
+      // Replace Thinking... with AI response
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.isLoading
+            ? {
+                sender: "ai",
+                text: data?.answer || "No AI response received.",
+                time: getCurrentTime(),
+              }
+            : msg
+        )
+      );
     } catch (error) {
       console.error("AI Error:", error);
 
-      // Add error message to chat
-      const errorMessage = {
-        sender: "ai",
-        text: "⚠️ Failed to connect to AI service.",
-        time: getCurrentTime(),
-      };
-
-      setMessages((prev) => [...prev, errorMessage]);
+      // Replace Thinking... with error message
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.isLoading
+            ? {
+                sender: "ai",
+                text: "⚠️ Failed to connect to AI service.",
+                time: getCurrentTime(),
+              }
+            : msg
+        )
+      );
     } finally {
       // Stop loading
       setLoading(false);
@@ -126,6 +212,8 @@ function AIAssistant() {
           </div>
         ))}
 
+        <div ref={chatEndRef}></div>
+
         {loading && (
           <div className="chat-message ai-message typing-indicator">
             <div className="message-header">
@@ -140,17 +228,33 @@ function AIAssistant() {
 
       {/* AI Form */}
       <form onSubmit={handleAskAI} className="ai-form">
-        <input
-          type="text"
-          placeholder="Ask something about your notes..."
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          disabled={loading}
-        />
+       <input
+         type="text"
+         placeholder="Ask something about your notes..."
+         value={question}
+         onChange={(e) => setQuestion(e.target.value)}
+         disabled={loading}
+         onKeyDown={(e) => {
+            if (e.key === "Enter" && !loading) {
+                handleAskAI(e);
+              }
+          }}
+       />
 
+       <div className="ai-actions">
         <button type="submit" disabled={loading}>
           {loading ? "Thinking..." : "Ask AI"}
         </button>
+
+        <button
+          type="button"
+          className="clear-chat-btn"
+          onClick={handleClearChat}
+          disabled={loading || clearing || messages.length === 0}
+        >
+          {clearing ? "Clearing..." : "🗑️ Clear Chat"}
+        </button>
+        </div>
       </form>
     </div>
   );

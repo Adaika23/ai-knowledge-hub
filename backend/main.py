@@ -1,6 +1,10 @@
 from datetime import datetime
 import os
 import math
+import io
+from PyPDF2 import PdfReader
+from docx import Document as DocxDocument
+from fastapi import UploadFile, File
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -13,8 +17,21 @@ from jose import jwt
 from sqlalchemy.orm import Session
 
 from database import engine, get_db
-from models import Base, Note, User
-from schemas import NoteCreate, NoteResponse, UserRegister, UserLogin, AIRequest
+from models import (
+    Base,
+    Note,
+    User,
+    Chat,
+    Document,
+)
+from schemas import (
+    NoteCreate,
+    NoteResponse,
+    UserRegister,
+    UserLogin,
+    AIRequest,
+    ChatResponse
+)
 
 
 # ================================
@@ -58,6 +75,11 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 def generate_embedding(text: str):
 
     try:
+
+        print("TEXT TYPE:", type(text))
+        print("TEXT LENGTH:", len(text))
+        print("FIRST 100 CHARACTERS:", repr(text[:100]))
+
         response = client.embeddings.create(
             model="text-embedding-3-small",
             input=text
@@ -381,6 +403,20 @@ def semantic_search(
     }
 
 # ================================
+# 💬 Get Chat History - Protected
+# ================================
+@app.get("/chat/history", response_model=list[ChatResponse])
+def get_chat_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    chats = db.query(Chat).filter(
+        Chat.user_id == current_user.id
+    ).order_by(Chat.created_at.asc()).all()
+
+    return chats
+
+# ================================
 # 🤖 AI Assistant Route - RAG
 # ================================
 @app.post("/ask-ai")
@@ -393,55 +429,77 @@ def ask_ai(
     try:
         today = datetime.now().strftime("%B %d, %Y")
 
-        # Generate embedding for the user's question
+        # Save user question
+        user_chat = Chat(
+            user_id=current_user.id,
+            sender="user",
+            message=request.question
+        )
+
+        db.add(user_chat)
+        db.commit()
+        db.refresh(user_chat)
+
+        # Generate embedding for user question
         question_embedding = generate_embedding(request.question)
 
-        # Get only the logged-in user's notes
+        # Get user's notes
         user_notes = db.query(Note).filter(
             Note.user_id == current_user.id
         ).all()
 
-        # If user has no notes
-        if not user_notes:
-            return {
-                "answer": "You do not have any saved notes yet."
-            }
+        # Get user's uploaded documents
+        user_documents = db.query(Document).filter(
+            Document.user_id == current_user.id
+        ).all()
 
-        # Score notes by semantic similarity
-        scored_notes = []
+        if not user_notes and not user_documents:
+            answer = "You do not have any saved notes or uploaded documents yet."
 
-        for note in user_notes:
-            similarity = cosine_similarity(
-                question_embedding,
-                note.embedding
+            ai_chat = Chat(
+                user_id=current_user.id,
+                sender="assistant",
+                message=answer
             )
 
-            scored_notes.append({
+            db.add(ai_chat)
+            db.commit()
+            db.refresh(ai_chat)
+
+            return {"answer": answer}
+
+        # Score notes + documents
+        scored_items = []
+
+        for note in user_notes:
+            scored_items.append({
+                "source": "note",
                 "title": note.title,
                 "content": note.content,
-                "similarity": similarity
+                "similarity": cosine_similarity(question_embedding, note.embedding)
             })
 
-        # Sort best matches first
-        scored_notes.sort(
-            key=lambda note: note["similarity"],
+        for document in user_documents:
+            scored_items.append({
+                "source": "document",
+                "title": document.filename,
+                "content": document.content,
+                "similarity": cosine_similarity(question_embedding, document.embedding)
+            })
+
+        scored_items.sort(
+            key=lambda item: item["similarity"],
             reverse=True
         )
 
-        # Use top 5 notes
-        top_notes = scored_notes[:5]
+        top_items = scored_items[:5]
 
-        # Build notes context
-        notes_context = "\n\n".join(
+        knowledge_context = "\n\n".join(
             [
-                f"Title: {note['title']}\nContent: {note['content']}"
-                for note in top_notes
+                f"Source: {item['source']}\nTitle: {item['title']}\nContent: {item['content'][:3000]}"
+                for item in top_items
             ]
         )
-
-        # Debug check in terminal
-        print("RAG NOTES CONTEXT:")
-        print(notes_context)
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -449,33 +507,173 @@ def ask_ai(
                 {
                     "role": "system",
                     "content": (
-                        "You are an AI assistant for a personal notes app. "
+                        "You are an AI assistant for a personal knowledge hub. "
                         f"Today's date is {today}. "
-                        "You MUST answer using the saved notes provided. "
-                        "If the saved notes mention the topic, summarize the notes. "
-                        "Do not say you cannot access notes."
+                        "Answer using the saved notes and uploaded documents provided."
                     ),
                 },
                 {
                     "role": "user",
                     "content": (
                         f"User question: {request.question}\n\n"
-                        f"Saved notes:\n{notes_context}\n\n"
-                        "Answer based only on the saved notes above."
+                        f"Knowledge base:\n{knowledge_context}\n\n"
+                        "Answer based only on the knowledge base above."
                     ),
                 },
             ],
         )
 
-        return {
-            "answer": response.choices[0].message.content
-        }
+        answer = response.choices[0].message.content
+
+        # Save AI response
+        ai_chat = Chat(
+            user_id=current_user.id,
+            sender="assistant",
+            message=answer
+        )
+
+        db.add(ai_chat)
+        db.commit()
+        db.refresh(ai_chat)
+
+        return {"answer": answer}
 
     except Exception as e:
         return {
             "answer": f"AI error: {str(e)}"
         }
+# ================================
+# 💬 Get Chat History
+# ================================
+@app.get("/chat-history")
+def get_chat_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
 
+    chats = db.query(Chat).filter(
+        Chat.user_id == current_user.id
+    ).order_by(
+        Chat.id.asc()
+    ).all()
+
+    return chats
+
+# ================================
+# 🗑️ Clear Chat History
+# ================================
+@app.delete("/chat-history")
+def clear_chat_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    db.query(Chat).filter(
+        Chat.user_id == current_user.id
+    ).delete()
+
+    db.commit()
+
+    return {
+        "message": "Chat history cleared successfully."
+    }  
+
+# ================================
+# 📄 Upload Document
+# ================================
+@app.post("/upload-document")
+def upload_document(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    try:
+        filename = file.filename.lower()
+
+        # Read uploaded file bytes
+        file_bytes = file.file.read()
+
+        extracted_text = ""
+
+        # ================================
+        # Extract Text from TXT
+        # ================================
+        if filename.endswith(".txt"):
+            extracted_text = file_bytes.decode("utf-8")
+
+        # ================================
+        # Extract Text from PDF
+        # ================================
+        elif filename.endswith(".pdf"):
+            pdf_reader = PdfReader(io.BytesIO(file_bytes))
+
+            for page in pdf_reader.pages:
+                extracted_text += page.extract_text() or ""
+
+        # ================================
+        # Extract Text from DOCX
+        # ================================
+        elif filename.endswith(".docx"):
+            docx_file = DocxDocument(io.BytesIO(file_bytes))
+
+            extracted_text = "\n".join(
+                paragraph.text
+                for paragraph in docx_file.paragraphs
+            )
+
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Only PDF, DOCX, and TXT files are supported."
+            )
+
+        # Prevent empty document upload
+        if not extracted_text.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Could not extract text from this document."
+            )
+        
+        # ================================
+        # Clean extracted text
+        # Remove invalid Unicode characters
+        # ================================
+        extracted_text = "".join(
+            char for char in extracted_text
+            if not 0xD800 <= ord(char) <= 0xDFFF
+        )
+        # Generate embedding for document content
+        document_embedding = generate_embedding(extracted_text)
+
+        # Save document to PostgreSQL
+                # Save document to PostgreSQL
+        document = Document(
+            user_id=current_user.id,
+            filename=file.filename,
+            content=extracted_text,
+            embedding=document_embedding
+        )
+
+        db.add(document)
+        db.commit()
+        db.refresh(document)
+
+        print("DOCUMENT SAVED:", document.id, document.filename)
+
+        return {
+            "message": "Document uploaded successfully.",
+            "filename": file.filename
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        print("UPLOAD ERROR:", str(e))
+        return {
+            "error": f"Upload failed: {str(e)}"
+        }
 # ================================
 # Register User - PostgreSQL
 # ================================

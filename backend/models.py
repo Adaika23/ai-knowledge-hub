@@ -14,7 +14,6 @@ from sqlalchemy import (
 from datetime import datetime
 from sqlalchemy.orm import relationship
 
-# Import Base from database.py
 from database import Base
 
 
@@ -24,20 +23,13 @@ from database import Base
 class User(Base):
     __tablename__ = "users"
 
-    # User ID
     id = Column(Integer, primary_key=True, index=True)
-
-    # Username must be unique
     username = Column(String, unique=True, index=True, nullable=False)
-
-    # Hashed password, not plain password
     hashed_password = Column(String, nullable=False)
 
-    # Relationship: one user can have many notes
     notes = relationship("Note", back_populates="owner")
-
-    # Relationship: one user can have many chat messages
     chats = relationship("Chat", back_populates="user")
+    documents = relationship("Document", back_populates="owner")
 
 
 # =========================================
@@ -46,83 +38,46 @@ class User(Base):
 class Note(Base):
     __tablename__ = "notes"
 
-    # Note ID
     id = Column(Integer, primary_key=True, index=True)
-
-    # Note title
     title = Column(String, index=True)
-
-    # Note content
     content = Column(String)
-
-    # Stores OpenAI embedding vector for semantic search
     embedding = Column(JSON, nullable=True)
 
-    # Connect note to user ID
     user_id = Column(Integer, ForeignKey("users.id"))
-
-    # Relationship: each note belongs to one user
     owner = relationship("User", back_populates="notes")
 
-# ================================
-# 💬 Chat Model
-# ================================
-class Chat(Base):
-    """
-    Stores AI conversations for each user.
-    """
 
+# =========================================
+# 💬 Chat Model
+# =========================================
+class Chat(Base):
     __tablename__ = "chats"
 
-    # Primary key
     id = Column(Integer, primary_key=True, index=True)
-
-    # Owner of this conversation
-    user_id = Column(
-        Integer,
-        ForeignKey("users.id")
-    )
-
-    # Who sent the message
-    # Example: "user" or "ai"
+    user_id = Column(Integer, ForeignKey("users.id"))
     sender = Column(String)
-
-    # Message text
     message = Column(Text)
 
-    # Time created
-    created_at = Column(
-        DateTime,
-        default=datetime.utcnow
-    )
+    created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relationship
-    user = relationship(
-        "User",
-        back_populates="chats"
-    )
+    user = relationship("User", back_populates="chats")
 
-    # ================================
-# 📄 Uploaded Documents
-# ================================
+
+# =========================================
+# 📄 Documents Table Model (FIXED)
+# =========================================
 class Document(Base):
     __tablename__ = "documents"
 
     id = Column(Integer, primary_key=True, index=True)
 
-    user_id = Column(
-        Integer,
-        ForeignKey("users.id")
-    )
+    user_id = Column(Integer, ForeignKey("users.id"))
 
     filename = Column(String)
-
     content = Column(Text)
 
-    embedding = Column(JSON)
+    embedding = Column(JSON, nullable=True)
 
-    created_at = Column(
-        DateTime,
-        default=datetime.utcnow
-    )
+    created_at = Column(DateTime, default=datetime.utcnow)
 
+    owner = relationship("User", back_populates="documents")

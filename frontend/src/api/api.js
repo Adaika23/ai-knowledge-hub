@@ -82,26 +82,38 @@ export async function searchNotes(query) {
   return await response.json();
 }
 
-
-// ========================================
-// 🤖 Ask AI Assistant - Protected
-// ========================================
-// Sends POST request to FastAPI:
+// ================================
+// 🤖 Ask AI
+// ================================
+// Sends POST request to backend
 // POST /ask-ai
-// Requires JWT token because AI now reads user notes.
+// Requires JWT token because AI reads user notes/documents
 export async function askAI(question) {
   const response = await fetch(`${API_URL}/ask-ai`, {
     method: "POST",
     headers: getAuthHeaders(),
-
     body: JSON.stringify({ question }),
   });
 
   if (!response.ok) {
-    throw new Error("Failed to ask AI");
+    const errorText = await response.text();
+    throw new Error(errorText || "Failed to ask AI");
   }
 
-  return await response.json();
+  const contentType = response.headers.get("content-type");
+
+  // Normal JSON response fallback
+  if (contentType && contentType.includes("application/json")) {
+    return await response.json();
+  }
+
+  // Streaming response fallback as text
+  const text = await response.text();
+
+  return {
+    answer: text,
+    sources: [],
+  };
 }
 
 
@@ -202,28 +214,37 @@ export async function deleteNote(noteId) {
 // 💬 Get Chat History
 // ================================
 export const getChatHistory = async () => {
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
 
-  const response = await fetch(
-    "http://127.0.0.1:8000/chat-history",
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
+  // ✅ Safety check
+  if (!token) {
+    throw new Error("No authentication token found");
+  }
 
-  return response.json();
+  const res = await fetch("http://127.0.0.1:8000/chat/history", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  // ✅ Handle backend errors properly
+  if (!res.ok) {
+    const errorData = await res.text();
+    throw new Error(errorData || "Failed to load chat history");
+  }
+
+  return await res.json();
 };
 
 // ================================
 // 🗑️ Clear Chat History
 // ================================
 export const clearChatHistory = async () => {
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
 
   const response = await fetch(
-    "http://127.0.0.1:8000/chat-history",
+    `${API_URL}/chat-history`,
     {
       method: "DELETE",
       headers: {
@@ -260,6 +281,77 @@ export const uploadDocument = async (file) => {
       body: formData,
     }
   );
+
+  return response.json();
+};
+
+// ================================
+// 📄 Get Uploaded Documents
+// ================================
+export const getDocuments = async () => {
+  const token = sessionStorage.getItem("token");
+
+  const response = await fetch(
+    `${API_URL}/documents`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch documents");
+  }
+
+  return await response.json();
+};
+
+// ====================================
+// 👁 Get Single Document
+// ====================================
+export const getDocument = async (documentId) => {
+
+    const token = sessionStorage.getItem("token");
+
+    const response = await fetch(
+        `${API_URL}/documents/${documentId}`,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error("Failed to fetch document");
+    }
+
+    return await response.json();
+};
+
+// ================================
+// 🗑 Delete Document
+// ================================
+export const deleteDocument = async (documentId) => {
+
+  const token = sessionStorage.getItem("token");
+
+  const response = await fetch(
+    `${API_URL}/documents/${documentId}`,
+    {
+      method: "DELETE",
+
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to delete document");
+  }
 
   return response.json();
 };

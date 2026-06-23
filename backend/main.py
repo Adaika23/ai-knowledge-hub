@@ -1,10 +1,13 @@
 from datetime import datetime
 import os
 import math
+import fitz
 import io
 from PyPDF2 import PdfReader
 from docx import Document as DocxDocument
 from fastapi import UploadFile, File
+
+from fastapi.responses import StreamingResponse
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -76,6 +79,20 @@ def generate_embedding(text: str):
 
     try:
 
+        # Remove invalid Unicode surrogate characters
+        text = "".join(
+            char
+            for char in text
+            if not 0xD800 <= ord(char) <= 0xDFFF
+        )
+
+        # Convert to safe UTF-8
+        text = (
+            text
+            .encode("utf-8", errors="ignore")
+            .decode("utf-8", errors="ignore")
+        )
+
         print("TEXT TYPE:", type(text))
         print("TEXT LENGTH:", len(text))
         print("FIRST 100 CHARACTERS:", repr(text[:100]))
@@ -89,10 +106,21 @@ def generate_embedding(text: str):
         return response.data[0].embedding
 
     except Exception as e:
-        print("Embedding error:", e)
+
+        print("Embedding error:", repr(e))
+
+        # Print first invalid character if one exists
+        for index, char in enumerate(text):
+            code = ord(char)
+
+            if 0xD800 <= code <= 0xDFFF:
+                print(
+                    f"Invalid surrogate at position {index}: "
+                    f"{repr(char)} ({hex(code)})"
+                )
+                break
 
         return None
-
 # ================================
 # Calculate Cosine Similarity
 # ================================
@@ -410,15 +438,17 @@ def get_chat_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    chats = db.query(Chat).filter(
-        Chat.user_id == current_user.id
-    ).order_by(Chat.created_at.asc()).all()
+    chats = db.query(Chat)\
+        .filter(Chat.user_id == current_user.id)\
+        .order_by(Chat.created_at.asc())\
+        .all()
 
     return chats
 
-# ================================
-# 🤖 AI Assistant Route - RAG
-# ================================
+from fastapi.responses import StreamingResponse
+import json
+import time
+
 @app.post("/ask-ai")
 def ask_ai(
     request: AIRequest,
@@ -426,138 +456,188 @@ def ask_ai(
     current_user: User = Depends(get_current_user)
 ):
 
-    try:
-        today = datetime.now().strftime("%B %d, %Y")
+    def generate():
+        try:
+            today = datetime.now().strftime("%B %d, %Y")
 
-        # Save user question
-        user_chat = Chat(
-            user_id=current_user.id,
-            sender="user",
-            message=request.question
-        )
+            # ================================
+            # Save User Question
+            # ================================
+            user_chat = Chat(
+                user_id=current_user.id,
+                sender="user",
+                message=request.question
+            )
 
-        db.add(user_chat)
-        db.commit()
-        db.refresh(user_chat)
+            db.add(user_chat)
+            db.commit()
+            db.refresh(user_chat)
 
-        # Generate embedding for user question
-        question_embedding = generate_embedding(request.question)
+            # ================================
+            # Generate Question Embedding
+            # ================================
+            question_embedding = generate_embedding(request.question)
 
-        # Get user's notes
-        user_notes = db.query(Note).filter(
-            Note.user_id == current_user.id
-        ).all()
+            if question_embedding is None:
+                yield json.dumps({
+                    "token": "Could not generate embedding."
+                }) + "\n"
 
-        # Get user's uploaded documents
-        user_documents = db.query(Document).filter(
-            Document.user_id == current_user.id
-        ).all()
+                ai_chat = Chat(
+                    user_id=current_user.id,
+                    sender="assistant",
+                    message=msg
+                )
 
-        if not user_notes and not user_documents:
-            answer = "You do not have any saved notes or uploaded documents yet."
+                db.add(ai_chat)
+                db.commit()
+                return
 
+            # ================================
+            # Get User Notes + Documents
+            # ================================
+            user_notes = db.query(Note).filter(
+                Note.user_id == current_user.id
+            ).all()
+
+            user_documents = db.query(Document).filter(
+                Document.user_id == current_user.id
+            ).all()
+
+            if not user_notes and not user_documents:
+                msg = "You do not have any saved notes or uploaded documents yet."
+                yield json.dumps({"token": msg}) + "\n"
+                return
+
+            # ================================
+            # Score Items
+            # ================================
+            scored_items = []
+
+            for note in user_notes:
+                if note.embedding:
+                    scored_items.append({
+                        "source": "note",
+                        "title": note.title,
+                        "content": note.content,
+                        "similarity": cosine_similarity(
+                            question_embedding,
+                            note.embedding
+                        )
+                    })
+
+            for document in user_documents:
+                if document.embedding:
+                    scored_items.append({
+                        "source": "document",
+                        "title": document.filename,
+                        "content": document.content,
+                        "similarity": cosine_similarity(
+                            question_embedding,
+                            document.embedding
+                        )
+                    })
+
+            if not scored_items:
+                msg = "No embeddings found in notes or documents."
+                yield json.dumps({"token": msg}) + "\n"
+
+                ai_chat = Chat(
+                    user_id=current_user.id,
+                    sender="assistant",
+                    message=msg
+                )
+
+                db.add(ai_chat)
+                db.commit()
+                return
+
+            scored_items.sort(key=lambda x: x["similarity"], reverse=True)
+            top_items = scored_items[:5]
+
+            # ================================
+            # Build Context
+            # ================================
+            knowledge_context = "\n\n".join([
+                f"Source Type: {i['source']}\n"
+                f"Title: {i['title']}\n"
+                f"Content: {i['content'][:2000]}"
+                for i in top_items
+            ])
+
+            # ================================
+            # STREAM OPENAI RESPONSE
+            # ================================
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                stream=True,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            f"You are an AI assistant for a personal knowledge hub. "
+                            f"Today's date is {today}. "
+                            "Answer only using the provided notes and documents. "
+                            "Keep answers concise and well organized. "
+                            "Use bullet points when helpful. "
+                            "Do not copy large sections of documents. "
+                            "If the answer is not found, clearly say so."
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": f"""
+Question:
+{request.question}
+
+Context:
+{knowledge_context}
+
+Answer clearly and concisely.
+"""
+                    }
+                ]
+            )
+
+            full_response = ""
+
+            for chunk in response:
+                token = chunk.choices[0].delta.content
+
+                if token:
+                    full_response += token
+
+                    yield json.dumps({
+                        "token": token
+                    }) + "\n"
+
+                    time.sleep(0.01)
+
+            # ================================
+            # Save Final AI Response
+            # ================================
             ai_chat = Chat(
                 user_id=current_user.id,
                 sender="assistant",
-                message=answer
+                message=full_response
             )
 
             db.add(ai_chat)
             db.commit()
-            db.refresh(ai_chat)
 
-            return {"answer": answer}
+        except Exception as e:
+            yield json.dumps({
+                "token": f"Error: {str(e)}"
+            }) + "\n"
 
-        # Score notes + documents
-        scored_items = []
-
-        for note in user_notes:
-            scored_items.append({
-                "source": "note",
-                "title": note.title,
-                "content": note.content,
-                "similarity": cosine_similarity(question_embedding, note.embedding)
-            })
-
-        for document in user_documents:
-            scored_items.append({
-                "source": "document",
-                "title": document.filename,
-                "content": document.content,
-                "similarity": cosine_similarity(question_embedding, document.embedding)
-            })
-
-        scored_items.sort(
-            key=lambda item: item["similarity"],
-            reverse=True
-        )
-
-        top_items = scored_items[:5]
-
-        knowledge_context = "\n\n".join(
-            [
-                f"Source: {item['source']}\nTitle: {item['title']}\nContent: {item['content'][:3000]}"
-                for item in top_items
-            ]
-        )
-
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an AI assistant for a personal knowledge hub. "
-                        f"Today's date is {today}. "
-                        "Answer using the saved notes and uploaded documents provided."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": (
-                        f"User question: {request.question}\n\n"
-                        f"Knowledge base:\n{knowledge_context}\n\n"
-                        "Answer based only on the knowledge base above."
-                    ),
-                },
-            ],
-        )
-
-        answer = response.choices[0].message.content
-
-        # Save AI response
-        ai_chat = Chat(
-            user_id=current_user.id,
-            sender="assistant",
-            message=answer
-        )
-
-        db.add(ai_chat)
-        db.commit()
-        db.refresh(ai_chat)
-
-        return {"answer": answer}
-
-    except Exception as e:
-        return {
-            "answer": f"AI error: {str(e)}"
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
         }
-# ================================
-# 💬 Get Chat History
-# ================================
-@app.get("/chat-history")
-def get_chat_history(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-
-    chats = db.query(Chat).filter(
-        Chat.user_id == current_user.id
-    ).order_by(
-        Chat.id.asc()
-    ).all()
-
-    return chats
+    )
 
 # ================================
 # 🗑️ Clear Chat History
@@ -603,13 +683,24 @@ def upload_document(
             extracted_text = file_bytes.decode("utf-8")
 
         # ================================
-        # Extract Text from PDF
+        # Extract Text from PDF (PyMuPDF)
         # ================================
         elif filename.endswith(".pdf"):
-            pdf_reader = PdfReader(io.BytesIO(file_bytes))
 
-            for page in pdf_reader.pages:
-                extracted_text += page.extract_text() or ""
+            pdf_document = fitz.open(
+                stream=file_bytes,
+                filetype="pdf"
+            )
+
+            extracted_text = ""
+
+            for page in pdf_document:
+
+                page_text = page.get_text()
+
+                extracted_text += page_text + "\n"
+
+            pdf_document.close()
 
         # ================================
         # Extract Text from DOCX
@@ -643,11 +734,16 @@ def upload_document(
             char for char in extracted_text
             if not 0xD800 <= ord(char) <= 0xDFFF
         )
+
+        extracted_text = (
+            extracted_text
+            .encode("utf-8", errors="ignore")
+            .decode("utf-8", errors="ignore")
+        )    
         # Generate embedding for document content
         document_embedding = generate_embedding(extracted_text)
 
         # Save document to PostgreSQL
-                # Save document to PostgreSQL
         document = Document(
             user_id=current_user.id,
             filename=file.filename,
@@ -674,6 +770,73 @@ def upload_document(
         return {
             "error": f"Upload failed: {str(e)}"
         }
+
+# ================================
+# 📄 Get Uploaded Documents
+# ================================
+@app.get("/documents")
+def get_documents(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    documents = db.query(Document).filter(
+        Document.user_id == current_user.id
+    ).order_by(
+        Document.id.desc()
+    ).all()
+
+    return documents
+
+# ================================
+# 👁 Get Single Document
+# ================================
+@app.get("/documents/{document_id}")
+def get_single_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.user_id == current_user.id
+    ).first()
+
+    if not document:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found."
+        )
+
+    return document
+
+# ================================
+# 🗑 Delete Document
+# ================================
+@app.delete("/documents/{document_id}")
+def delete_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.user_id == current_user.id
+    ).first()
+
+    if not document:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found."
+        )
+
+    db.delete(document)
+    db.commit()
+
+    return {
+        "message": "Document deleted successfully."
+    }    
 # ================================
 # Register User - PostgreSQL
 # ================================
@@ -759,3 +922,24 @@ def login(
         "message": "Login successful",
         "token": token
     }
+
+from datetime import datetime
+
+# ================================
+# Save Chat Message
+# ================================
+@app.post("/chat/save")
+def save_chat(data: dict, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+
+    chat = Chat(
+        user_id=current_user.id,
+        sender=data["sender"],   # "user" or "ai"
+        message=data["message"],
+        timestamp=datetime.utcnow()
+    )
+
+    db.add(chat)
+    db.commit()
+    db.refresh(chat)
+
+    return {"message": "saved"}

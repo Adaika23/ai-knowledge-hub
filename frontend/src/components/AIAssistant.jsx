@@ -1,5 +1,22 @@
 import { useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
+
+import SourceModal from "./SourceModal";
+import ChatMessage from "./ChatMessage";
+
+import { getCurrentTime } from "./utils";
+
+
+import {
+  USER,
+  AI,
+  THINKING_TEXT,
+  NO_AI_RESPONSE_TEXT,
+  AI_CONNECTION_ERROR_TEXT,
+  NO_CHAT_DOWNLOAD_TEXT,
+  DOWNLOAD_CHAT_BUTTON_LABEL,
+  CLEAR_CHAT_BUTTON_LABEL,
+} from "./constants";
+
 import {
   askAI,
   getChatHistory,
@@ -20,17 +37,49 @@ function AIAssistant() {
   // Loading state while waiting for AI response
   const [loading, setLoading] = useState(false);
 
+  // 📄 Source Viewer
+  const [selectedSource, setSelectedSource] = useState(null);
+
   // Clearing 
   const [clearing, setClearing] = useState(false);
 
   // Automatically scroll to newest message
   const chatEndRef = useRef(null);
 
+  // ================================
+  // 📚 Source References
+  // ================================
+  const sourceRefs = useRef({});
+
+  const isUserAtBottom = useRef(true);
+
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
-   }, [messages, loading]);
+    const container = chatEndRef.current?.parentElement;
+
+    const handleScroll = () => {
+      if (!container) return;
+
+      const threshold = 80; // px from bottom
+      const position =
+        container.scrollHeight -
+        container.scrollTop -
+        container.clientHeight;
+
+      isUserAtBottom.current = position < threshold;
+    };
+
+    container?.addEventListener("scroll", handleScroll);
+
+    return () => container?.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (isUserAtBottom.current) {
+      chatEndRef.current?.scrollIntoView({
+        behavior: "smooth",
+      });
+    }
+  }, [messages, loading]);
 
    // ================================
    // 💬 Load Chat History
@@ -56,97 +105,203 @@ function AIAssistant() {
 
      loadHistory();
    }, []);
+    
+    // ================================
+    // 🗑️ Clear Chat
+    // ================================
+    const handleClearChat = async () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete all chat history?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      // Start clearing state
+      setClearing(true);
+
+      // Delete chat history from backend
+      await clearChatHistory();
+
+      // Clear React state
+      setMessages([]);
+      setQuestion("");
+    } catch (error) {
+      console.error("Failed to clear chat:", error);
+    } finally {
+      // Reset clearing state
+      setClearing(false);
+    }
+  };
 
   // ================================
-  // Format Timestamp
+  // Download Chat
   // ================================
-  function getCurrentTime() {
-    return new Date().toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
+  function downloadChat() {
+
+    if (messages.length === 0) {
+      alert(NO_CHAT_DOWNLOAD_TEXT);
+      return;
+    }
+
+    const chatContent = messages
+      .map((msg) => {
+        const sender =
+          msg.sender === USER ? "You" : "AI";
+        return `${sender}:\n${msg.message || msg.text}\n`;
+      })
+      .join("\n----------------------------------------\n\n");
+
+    const blob = new Blob([chatContent], {
+      type: "text/plain;charset=utf-8",
     });
+
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "ai-chat-history.txt";
+
+    document.body.appendChild(link);
+    link.click();
+
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   // ================================
-  // 🗑️ Clear Chat
+  // 📚 Jump to Source
   // ================================
-  const handleClearChat = async () => {
-   const confirmed = window.confirm(
-     "Are you sure you want to delete all chat history?"
-   );
+  function jumpToSource(title) {
 
-   if (!confirmed) {
-     return;
-   }
+    const element = sourceRefs.current[title];
 
-   try {
-     // Start clearing state
-     setClearing(true);
+    if (!element) {
+      return;
+    }
 
-     // Delete chat history from backend
-     await clearChatHistory();
+    element.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
 
-     // Clear React state
-     setMessages([]);
-     setQuestion("");
-   } catch (error) {
-     console.error("Failed to clear chat:", error);
-   } finally {
-     // Reset clearing state
-     setClearing(false);
-   }
-};
+    // Temporary highlight
+    element.style.background = "#fff7cc";
+    element.style.border = "2px solid #facc15";
 
+    setTimeout(() => {
+      element.style.background = "white";
+      element.style.border = "1px solid #e5e5e5";
+    }, 2000);
+  }
   // ================================
-  // Handle AI Request
+  // Handle AI Request - Streaming
   // ================================
   const handleAskAI = async (e) => {
     e.preventDefault();
 
-    // Remove extra spaces
     const trimmedQuestion = question.trim();
 
-    // Prevent empty request
     if (!trimmedQuestion) {
       return;
     }
 
-    // Create user message
+    const aiMessageId = Date.now();
+
     const userMessage = {
-      sender: "user",
+      sender: USER,
       text: trimmedQuestion,
       time: getCurrentTime(),
     };
 
-    // Create temporary AI loading message
-    const thinkingMessage = {
-      sender: "ai",
-      text: "Thinking...",
+    const aiMessage = {
+      id: aiMessageId,
+      sender: AI,
+      text: "",
       time: getCurrentTime(),
-      isLoading: true,
+      sources: [],
+      isStreaming: true,
     };
 
-    // Add user message and thinking message immediately
-    setMessages((prev) => [...prev, userMessage, thinkingMessage]);
-
-    // Clear input immediately after sending
+    setMessages((prev) => [...prev, userMessage, aiMessage]);
     setQuestion("");
+    setLoading(true);
 
     try {
-      // Start loading
-      setLoading(true);
+      const response = await fetch("http://127.0.0.1:8000/ask-ai", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({
+          question: trimmedQuestion,
+        }),
+      });
 
-      // Send request to backend
-      const data = await askAI(trimmedQuestion);
+      if (!response.ok) {
+        throw new Error("AI request failed");
+      }
 
-      // Replace Thinking... with AI response
+      if (!response.body) {
+        throw new Error("No streaming response found");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+
+      let aiText = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          let cleanLine = line;
+
+          if (cleanLine.startsWith("data: ")) {
+            cleanLine = cleanLine.replace("data: ", "");
+          }
+
+          try {
+            const parsed = JSON.parse(cleanLine);
+
+            if (parsed.token) {
+              aiText += parsed.token;
+
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === aiMessageId
+                    ? {
+                        ...msg,
+                        text: aiText,
+                      }
+                    : msg
+                )
+              );
+            }
+          } catch (error) {
+            console.error("Stream parse error:", error);
+          }
+        }
+      }
+
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.isLoading
+          msg.id === aiMessageId
             ? {
-                sender: "ai",
-                text: data?.answer || "No AI response received.",
-                time: getCurrentTime(),
+                ...msg,
+                isStreaming: false,
               }
             : msg
         )
@@ -154,31 +309,55 @@ function AIAssistant() {
     } catch (error) {
       console.error("AI Error:", error);
 
-      // Replace Thinking... with error message
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.isLoading
+          msg.id === aiMessageId
             ? {
-                sender: "ai",
-                text: "⚠️ Failed to connect to AI service.",
-                time: getCurrentTime(),
+                ...msg,
+                text: AI_CONNECTION_ERROR_TEXT,
+                isStreaming: false,
               }
             : msg
         )
       );
     } finally {
-      // Stop loading
       setLoading(false);
     }
   };
-
   // ================================
   // UI
   // ================================
   return (
     <div className="ai-assistant">
-      {/* Header */}
-      <h2>🤖 AI Assistant</h2>
+      {/* ================================ */}
+      {/* 🤖 AI Assistant Header */}
+      {/* ================================ */}
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "10px",
+        }}
+      >
+        <h2>🤖 AI Assistant</h2>
+
+        <button
+          onClick={downloadChat}
+          style={{
+            padding: "8px 14px",
+            background: "#2563eb",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "14px",
+          }}
+        >
+         {DOWNLOAD_CHAT_BUTTON_LABEL}
+        </button>
+      </div>
 
       <p className="ai-description">
         Ask questions about your saved notes, projects, programming, or learning topics.
@@ -191,25 +370,18 @@ function AIAssistant() {
             <p>No messages yet. Ask your first question.</p>
           </div>
         )}
-
+        
+       {/* ================================ */}
+       {/* 💬 Chat Message Component */}
+       {/* ================================ */}
         {messages.map((msg, index) => (
-          <div
+          <ChatMessage
             key={index}
-            className={
-              msg.sender === "user"
-                ? "chat-message user-message"
-                : "chat-message ai-message"
-            }
-          >
-            <div className="message-header">
-              <strong>{msg.sender === "user" ? "You" : "AI"}</strong>
-              <span>{msg.time}</span>
-            </div>
-
-            <div className="message-body">
-              <ReactMarkdown>{msg.text}</ReactMarkdown>
-            </div>
-          </div>
+            msg={msg}
+            sourceRefs={sourceRefs}
+            jumpToSource={jumpToSource}
+            setSelectedSource={setSelectedSource}
+          />
         ))}
 
         <div ref={chatEndRef}></div>
@@ -221,7 +393,11 @@ function AIAssistant() {
               <span>{getCurrentTime()}</span>
             </div>
 
-            <p>AI is typing...</p>
+            <div className="typing-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
           </div>
         )}
       </div>
@@ -252,10 +428,17 @@ function AIAssistant() {
           onClick={handleClearChat}
           disabled={loading || clearing || messages.length === 0}
         >
-          {clearing ? "Clearing..." : "🗑️ Clear Chat"}
+         {CLEAR_CHAT_BUTTON_LABEL}
         </button>
         </div>
       </form>
+      {/* ============================== */}
+      {/* 📄 Full Source Modal */}
+      {/* ============================== */}
+      <SourceModal
+        selectedSource={selectedSource}
+        setSelectedSource={setSelectedSource}
+      />
     </div>
   );
 }

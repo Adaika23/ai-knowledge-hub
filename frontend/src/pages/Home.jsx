@@ -16,6 +16,7 @@ import NoteList from "../components/NoteList";
 import AIAssistant from "../components/AIAssistant";
 import SemanticSearch from "../components/SemanticSearch";
 import DocumentUpload from "../components/DocumentUpload";
+import DocumentList from "../components/DocumentList";
 
 // ================================
 // Import API Functions
@@ -342,6 +343,7 @@ function Home() {
         {/*DocumentUpload Section */}
         <div id="upload-document">
           <DocumentUpload />
+          <DocumentList />
         </div>
         
         {/* ================================ */}

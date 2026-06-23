@@ -1,5 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 
+//Background image for login
+import loginBg from "../assets/images/login-bg.jpg";
+
+
 // ================================
 // Login Component
 // ================================
@@ -77,59 +81,57 @@ function Login({ onLoginSuccess, onCreateAccount }) {
   // UI
   // ================================
   return (
-    <div className="login-card">
-      <h2>Login</h2>
+    <div
+      className="login-page"
+    >
+      <div className="login-card">
+        <h2>Login</h2>
 
-      <form onSubmit={handleLogin}>
-        <input
-          ref={usernameRef}
-          type="text"
-          placeholder="Enter username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
+        <form onSubmit={handleLogin}>
+          <input
+            ref={usernameRef}
+            type="text"
+            placeholder="Enter username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
 
-        <input
-          type="password"
-          placeholder="Enter password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+          <input
+            type="password"
+            placeholder="Enter password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
-        <button type="submit">
-          Login
-        </button>
-      </form>
+          <button type="submit">Login</button>
+        </form>
 
-      <div className="auth-links">
-        <button
-          type="button"
-          className="auth-link-button"
-          onClick={handleForgotPassword}
-        >
-          Forgot Password?
-        </button>
+        <div className="auth-links">
+          <button
+            type="button"
+            className="auth-link-button"
+            onClick={handleForgotPassword}
+          >
+            Forgot Password?
+          </button>
 
-        <button
-          type="button"
-          className="auth-link-button"
-          onClick={onCreateAccount}
-        >
-          Create Account
-        </button>
-      </div>
+          <button
+            type="button"
+            className="auth-link-button"
+            onClick={onCreateAccount}
+          >
+            Create Account
+          </button>
+        </div>
 
-      <p className="version">
+        <p className="version">
           AI Knowledge Hub v1.0
-        <br />
+          <br />
           Powered by FastAPI + React + OpenAI
-      </p>
-
-      {message && (
-        <p className="auth-message">
-          {message}
         </p>
-      )}
+
+        {message && <p className="auth-message">{message}</p>}
+      </div>
     </div>
   );
 }

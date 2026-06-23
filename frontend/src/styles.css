@@ -14,10 +14,12 @@ body {
   margin: 0;
   font-family: Arial, sans-serif;
 
-  /* Soft modern background */
-  background: #f4f6f8;
+  background-image: url("/src/assets/images/login-bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 
-  /* Main text color */
   color: #1f2937;
 }
 
@@ -811,11 +813,15 @@ button:hover {
 }
 
 .chat-message {
-  padding: 1rem;
-  border-radius: 12px;
-  max-width: 85%;
-  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: 14px;
+  margin: 8px 0;
   word-wrap: break-word;
+  transition: transform 0.2s ease;
+  animation: fadeIn 0.25s ease;
 }
 
 /* User Message */
@@ -833,11 +839,72 @@ button:hover {
   color: #111;
 }
 
+/* Hover effect */
+.chat-message:hover {
+  transform: translateY(-2px);
+}
+
+/* Optional: text spacing */
 .chat-message strong {
   display: block;
   margin-bottom: 0.5rem;
 }
 
+
+/* ================================ */
+/* ✨ Fade In Animation */
+/* ================================ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ================================ */
+/* 🤖 AI Typing Indicator */
+/* ================================ */
+
+.typing-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.typing-dots span {
+  width: 8px;
+  height: 8px;
+  background: #2563eb;
+  border-radius: 50%;
+  animation: typingBounce 1.2s infinite ease-in-out;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typingBounce {
+  0%, 80%, 100% {
+    transform: scale(0.7);
+    opacity: 0.5;
+  }
+
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
 /* ========================================
    🌙 Dark Mode
 ======================================== */
@@ -1001,7 +1068,17 @@ section {
 
 .auth-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #eef4ff, #f8fafc);
+  background:
+    linear-gradient(
+      rgba(0, 0, 0, 0.35),
+      rgba(0, 0, 0, 0.35)
+    ),
+    url("/src/assets/images/login-bg.jpg");
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1023,7 +1100,7 @@ section {
 }
 
 .auth-left {
-  background: linear-gradient(135deg, #2563eb, #1e40af);
+  background: linear-gradient(135deg, #27488f, #27488f);
   color: white;
   padding: 4rem 3rem;
   display: flex;
@@ -1032,7 +1109,7 @@ section {
 }
 
 .auth-left h1 {
-  font-size: 2.7rem;
+  font-size: 2.5rem;
   margin-bottom: 1rem;
 }
 
@@ -1043,11 +1120,11 @@ section {
 }
 
 .auth-right {
-  padding: 3rem;
+  padding: 5rem;
   background: white;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 2rem;
 }
 
@@ -1083,7 +1160,7 @@ section {
   width: 100%;
   padding: 0.9rem;
   border-radius: 10px;
-  background: #2563eb;
+  background: #2c60cf;
   color: white;
   font-weight: 700;
   border: none;

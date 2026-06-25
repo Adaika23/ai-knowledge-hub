@@ -208,122 +208,44 @@ function AIAssistant() {
       return;
     }
 
-    const aiMessageId = Date.now();
-
     const userMessage = {
       sender: USER,
-      text: trimmedQuestion,
+      message: trimmedQuestion,
       time: getCurrentTime(),
     };
 
-    const aiMessage = {
-      id: aiMessageId,
-      sender: AI,
-      text: "",
-      time: getCurrentTime(),
-      sources: [],
-      isStreaming: true,
-    };
-
-    setMessages((prev) => [...prev, userMessage, aiMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setQuestion("");
     setLoading(true);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/ask-ai", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionStorage.getItem("token")}`,
-        },
-        body: JSON.stringify({
-          question: trimmedQuestion,
-        }),
-      });
+      const data = await askAI(trimmedQuestion);
 
-      if (!response.ok) {
-        throw new Error("AI request failed");
-      }
+      const aiMessage = {
+        sender: AI,
+        message: data.answer || NO_AI_RESPONSE_TEXT,
+        sources: data.sources || [],
+        time: getCurrentTime(),
+      };
 
-      if (!response.body) {
-        throw new Error("No streaming response found");
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-
-      let aiText = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-
-        if (done) {
-          break;
-        }
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-
-          let cleanLine = line;
-
-          if (cleanLine.startsWith("data: ")) {
-            cleanLine = cleanLine.replace("data: ", "");
-          }
-
-          try {
-            const parsed = JSON.parse(cleanLine);
-
-            if (parsed.token) {
-              aiText += parsed.token;
-
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === aiMessageId
-                    ? {
-                        ...msg,
-                        text: aiText,
-                      }
-                    : msg
-                )
-              );
-            }
-          } catch (error) {
-            console.error("Stream parse error:", error);
-          }
-        }
-      }
-
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === aiMessageId
-            ? {
-                ...msg,
-                isStreaming: false,
-              }
-            : msg
-        )
-      );
+      setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
       console.error("AI Error:", error);
 
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === aiMessageId
-            ? {
-                ...msg,
-                text: AI_CONNECTION_ERROR_TEXT,
-                isStreaming: false,
-              }
-            : msg
-        )
-      );
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: AI,
+          message: AI_CONNECTION_ERROR_TEXT,
+          sources: [],
+          time: getCurrentTime(),
+        },
+      ]);
     } finally {
       setLoading(false);
     }
   };
+  
   // ================================
   // UI
   // ================================

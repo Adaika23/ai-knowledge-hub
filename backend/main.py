@@ -444,201 +444,242 @@ def get_chat_history(
         .all()
 
     return chats
-
-from fastapi.responses import StreamingResponse
-import json
-import time
-
+# ask - ai
 @app.post("/ask-ai")
 def ask_ai(
     request: AIRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    try:
+        today = datetime.now().strftime("%B %d, %Y")
 
-    def generate():
-        try:
-            today = datetime.now().strftime("%B %d, %Y")
+        # Save user question
+        user_chat = Chat(
+            user_id=current_user.id,
+            sender="user",
+            message=request.question
+        )
+        db.add(user_chat)
+        db.commit()
+        db.refresh(user_chat)
 
-            # ================================
-            # Save User Question
-            # ================================
-            user_chat = Chat(
-                user_id=current_user.id,
-                sender="user",
-                message=request.question
-            )
+        # Generate question embedding
+        question_embedding = generate_embedding(request.question)
 
-            db.add(user_chat)
-            db.commit()
-            db.refresh(user_chat)
+        if question_embedding is None:
+            msg = "Could not generate embedding."
 
-            # ================================
-            # Generate Question Embedding
-            # ================================
-            question_embedding = generate_embedding(request.question)
-
-            if question_embedding is None:
-                yield json.dumps({
-                    "token": "Could not generate embedding."
-                }) + "\n"
-
-                ai_chat = Chat(
-                    user_id=current_user.id,
-                    sender="assistant",
-                    message=msg
-                )
-
-                db.add(ai_chat)
-                db.commit()
-                return
-
-            # ================================
-            # Get User Notes + Documents
-            # ================================
-            user_notes = db.query(Note).filter(
-                Note.user_id == current_user.id
-            ).all()
-
-            user_documents = db.query(Document).filter(
-                Document.user_id == current_user.id
-            ).all()
-
-            if not user_notes and not user_documents:
-                msg = "You do not have any saved notes or uploaded documents yet."
-                yield json.dumps({"token": msg}) + "\n"
-                return
-
-            # ================================
-            # Score Items
-            # ================================
-            scored_items = []
-
-            for note in user_notes:
-                if note.embedding:
-                    scored_items.append({
-                        "source": "note",
-                        "title": note.title,
-                        "content": note.content,
-                        "similarity": cosine_similarity(
-                            question_embedding,
-                            note.embedding
-                        )
-                    })
-
-            for document in user_documents:
-                if document.embedding:
-                    scored_items.append({
-                        "source": "document",
-                        "title": document.filename,
-                        "content": document.content,
-                        "similarity": cosine_similarity(
-                            question_embedding,
-                            document.embedding
-                        )
-                    })
-
-            if not scored_items:
-                msg = "No embeddings found in notes or documents."
-                yield json.dumps({"token": msg}) + "\n"
-
-                ai_chat = Chat(
-                    user_id=current_user.id,
-                    sender="assistant",
-                    message=msg
-                )
-
-                db.add(ai_chat)
-                db.commit()
-                return
-
-            scored_items.sort(key=lambda x: x["similarity"], reverse=True)
-            top_items = scored_items[:5]
-
-            # ================================
-            # Build Context
-            # ================================
-            knowledge_context = "\n\n".join([
-                f"Source Type: {i['source']}\n"
-                f"Title: {i['title']}\n"
-                f"Content: {i['content'][:2000]}"
-                for i in top_items
-            ])
-
-            # ================================
-            # STREAM OPENAI RESPONSE
-            # ================================
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                stream=True,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            f"You are an AI assistant for a personal knowledge hub. "
-                            f"Today's date is {today}. "
-                            "Answer only using the provided notes and documents. "
-                            "Keep answers concise and well organized. "
-                            "Use bullet points when helpful. "
-                            "Do not copy large sections of documents. "
-                            "If the answer is not found, clearly say so."
-                        )
-                    },
-                    {
-                        "role": "user",
-                        "content": f"""
-Question:
-{request.question}
-
-Context:
-{knowledge_context}
-
-Answer clearly and concisely.
-"""
-                    }
-                ]
-            )
-
-            full_response = ""
-
-            for chunk in response:
-                token = chunk.choices[0].delta.content
-
-                if token:
-                    full_response += token
-
-                    yield json.dumps({
-                        "token": token
-                    }) + "\n"
-
-                    time.sleep(0.01)
-
-            # ================================
-            # Save Final AI Response
-            # ================================
             ai_chat = Chat(
                 user_id=current_user.id,
                 sender="assistant",
-                message=full_response
+                message=msg
+            )
+            db.add(ai_chat)
+            db.commit()
+
+            return {
+                "answer": msg,
+                "sources": []
+            }
+
+        # Get user notes and documents
+        user_notes = db.query(Note).filter(
+            Note.user_id == current_user.id
+        ).all()
+
+        user_documents = db.query(Document).filter(
+            Document.user_id == current_user.id
+        ).all()
+
+        if not user_notes and not user_documents:
+            msg = "You do not have any saved notes or uploaded documents yet."
+
+            ai_chat = Chat(
+                user_id=current_user.id,
+                sender="assistant",
+                message=msg
+            )
+            db.add(ai_chat)
+            db.commit()
+
+            return {
+                "answer": msg,
+                "sources": []
+            }
+
+        # Score notes and documents
+        scored_items = []
+
+        for note in user_notes:
+            if note.embedding:
+                scored_items.append({
+                    "type": "note",
+                    "title": note.title,
+                    "content": note.content,
+                    "similarity": cosine_similarity(
+                        question_embedding,
+                        note.embedding
+                    )
+                })
+
+        for document in user_documents:
+            if document.embedding:
+                scored_items.append({
+                    "type": "document",
+                    "title": document.filename,
+                    "content": document.content,
+                    "similarity": cosine_similarity(
+                        question_embedding,
+                        document.embedding
+                    )
+                })
+
+        if not scored_items:
+            msg = "No embeddings found in notes or documents."
+
+            ai_chat = Chat(
+                user_id=current_user.id,
+                sender="assistant",
+                message=msg
+            )
+            db.add(ai_chat)
+            db.commit()
+
+            return {
+                "answer": msg,
+                "sources": []
+            }
+
+        # ================================
+        # Filter Low Similarity Results
+        # ================================
+        MIN_SIMILARITY = 0.30
+
+        scored_items.sort(
+            key=lambda x: x["similarity"],
+            reverse=True
+        )
+
+        top_items = [
+            item
+            for item in scored_items
+            if item["similarity"] >= MIN_SIMILARITY
+        ][:5]
+
+        # ================================
+        # Filter Low Similarity Results
+        # ================================
+        MIN_SIMILARITY = 0.30
+
+        scored_items.sort(
+            key=lambda x: x["similarity"],
+            reverse=True
+        )
+
+        top_items = [
+            item
+            for item in scored_items
+            if item["similarity"] >= MIN_SIMILARITY
+        ][:5]
+
+        # ================================
+        # No Relevant Sources Found
+        # ================================
+        if not top_items:
+
+            answer = "I could not find this in the knowledge base."
+
+            ai_chat = Chat(
+                user_id=current_user.id,
+                sender="assistant",
+                message=answer
             )
 
             db.add(ai_chat)
             db.commit()
 
-        except Exception as e:
-            yield json.dumps({
-                "token": f"Error: {str(e)}"
-            }) + "\n"
+            return {
+                "answer": answer,
+                "sources": []
+            }
+        # Build knowledge context
+        knowledge_context = "\n\n".join([
+            f"Source Type: {item['type']}\n"
+            f"Title: {item['title']}\n"
+            f"Content: {item['content'][:2000]}"
+            for item in top_items
+        ])
 
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
+        # Ask OpenAI normally, not streaming
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        f"You are an AI assistant for a personal knowledge hub. "
+                        f"Today's date is {today}. "
+                        "Answer only using the provided notes and documents. "
+                        "Keep answers concise and well organized. "
+                        "Use bullet points when helpful. "
+                        "Do not copy large sections of documents. "
+                        "If the answer is not found, clearly say so."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"User question:\n{request.question}\n\n"
+                        f"Relevant knowledge base sources:\n{knowledge_context}\n\n"
+                        "Answer using clean professional markdown formatting.\n\n"
+                        "Rules:\n"
+                        "- Use headings when helpful\n"
+                        "- Use bullet points for lists\n"
+                        "- Use numbered steps for instructions\n"
+                        "- Use **bold text** for important points\n"
+                        "- Use code blocks for code examples\n"
+                        "- Answer only from the knowledge base above\n"
+                        "- If the answer is not found, say: I could not find this in the knowledge base."
+                    ),
+                },
+            ]
+        )
+
+        answer = response.choices[0].message.content
+
+        # Save AI response
+        ai_chat = Chat(
+            user_id=current_user.id,
+            sender="assistant",
+            message=answer
+        )
+        db.add(ai_chat)
+        db.commit()
+        db.refresh(ai_chat)
+
+        # Build source cards
+        sources = [
+            {
+                "type": item["type"],
+                "title": item["title"],
+                "similarity": round(item["similarity"], 4),
+                "preview": item["content"][:300]
+            }
+            for item in top_items
+        ]
+
+        return {
+            "answer": answer,
+            "sources": sources
         }
-    )
 
+    except Exception as e:
+        return {
+            "answer": f"AI error: {str(e)}",
+            "sources": []
+        }
+    
 # ================================
 # 🗑️ Clear Chat History
 # ================================

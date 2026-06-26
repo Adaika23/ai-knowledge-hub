@@ -2,7 +2,8 @@
 // 🌐 Backend API Base URL
 // ========================================
 // This is the FastAPI backend server URL.
-const API_URL = "http://127.0.0.1:8000";
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 
 // ========================================
@@ -221,7 +222,7 @@ export const getChatHistory = async () => {
     throw new Error("No authentication token found");
   }
 
-  const res = await fetch("http://127.0.0.1:8000/chat/history", {
+  const res = await fetch(`${API_URL}/chat-history`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -272,7 +273,7 @@ export const uploadDocument = async (file) => {
   formData.append("file", file);
 
   const response = await fetch(
-    "http://127.0.0.1:8000/upload-document",
+    `${API_URL}/upload-document`,
     {
       method: "POST",
       headers: {

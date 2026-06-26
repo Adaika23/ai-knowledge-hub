@@ -1,219 +1,222 @@
-# 🤖 AI Knowledge Hub
+# AI Knowledge Hub
 
-A full-stack AI-powered Knowledge Management System that enables users to store personal notes and documents, perform semantic search using OpenAI embeddings, and ask questions through a Retrieval-Augmented Generation (RAG) assistant.
+AI Knowledge Hub is a full-stack web application that allows users to save notes, upload documents, search knowledge, and ask AI questions based on their personal knowledge base.
 
----
+## Features
 
-# Features
+- User registration and login
+- JWT authentication
+- Create, read, update, and delete notes
+- Keyword search
+- Semantic search using OpenAI embeddings
+- Upload PDF, DOCX, and TXT documents
+- Extract text from uploaded documents
+- AI assistant powered by RAG
+- AI answers based on saved notes and uploaded documents
+- Source cards with similarity scores
+- Chat history
+- Clear chat history
+- Download chat history
+- Markdown AI responses
+- Responsive login UI
+- Environment variable support for deployment
 
-## Authentication
+## Tech Stack
 
-- User Registration
-- User Login
-- JWT Authentication
-- Protected API Routes
-
-## Knowledge Management
-
-- Create, Edit, Delete Notes
-- Upload PDF, DOCX, and TXT Documents
-- PostgreSQL Storage
-
-## AI Features
-
-- OpenAI Embeddings
-- Semantic Search
-- Similarity Threshold Filtering
-- Retrieval-Augmented Generation (RAG)
-- AI Chat Assistant
-- Markdown Responses
-- Source Attribution
-- Source Preview
-- Source Viewer
-
-## Chat Features
-
-- Chat History
-- Copy Response
-- Download Chat
-- Clear Chat
-
----
-
-# Technology Stack
-
-## Frontend
+### Frontend
 
 - React
 - Vite
 - JavaScript
+- CSS
 - React Markdown
 
-## Backend
+### Backend
 
 - FastAPI
+- Python
 - SQLAlchemy
 - PostgreSQL
-- JWT Authentication
+- JWT authentication
+- OpenAI API
+- PyMuPDF
+- python-docx
 
-## AI
+### AI
 
-- OpenAI GPT-4o-mini
-- OpenAI text-embedding-3-small
+- OpenAI chat model
+- OpenAI embeddings
+- Cosine similarity
+- Retrieval-Augmented Generation
 
----
+## Project Structure
 
-# System Architecture
+```text
+AI-KNOWLEDGE-HUB
+|
+|-- backend
+|   |-- .env
+|   |-- requirements.txt
+|   |-- database.py
+|   |-- main.py
+|   |-- models.py
+|   |-- schemas.py
+|
+|-- frontend
+|   |-- .env
+|   |-- package.json
+|   |-- src
+|   |-- public
+|
+|-- README.md
+|-- .gitignore
+```
 
-User
+## How It Works
 
-↓
+1. A user creates notes or uploads documents.
+2. The backend extracts text from uploaded files.
+3. The system generates embeddings for notes and documents.
+4. When the user asks a question, the app generates an embedding for the question.
+5. The backend compares the question embedding with stored note and document embeddings.
+6. The most relevant sources are selected.
+7. The AI answers using only those sources.
+8. The frontend displays the answer, source cards, previews, and similarity scores.
 
-React Frontend
+## Main Backend Endpoints
 
-↓
+```text
+POST   /register
+POST   /login
+GET    /notes
+POST   /notes
+PUT    /notes/{note_id}
+DELETE /notes/{note_id}
 
-FastAPI Backend
+GET    /search
+GET    /semantic-search
 
-↓
+POST   /upload-document
+GET    /documents
+GET    /documents/{document_id}
+DELETE /documents/{document_id}
 
-PostgreSQL Database
+POST   /ask-ai
+GET    /chat-history
+DELETE /chat-history
+```
 
-↓
+## Environment Variables
 
-OpenAI Embeddings
+### Frontend `.env`
 
-↓
+```env
+VITE_API_URL=http://127.0.0.1:8000
+```
 
-Semantic Search
+### Backend `.env`
 
-↓
+```env
+OPENAI_API_KEY=your_openai_api_key
+DATABASE_URL=your_database_url
+```
 
-GPT-4o-mini
+## Run Locally
 
-↓
-
-AI Response with Sources
-
----
-
-# Installation
-
-## Backend
+### Backend
 
 ```bash
 cd backend
-
-python -m venv venv
-
 venv\Scripts\activate
-
 pip install -r requirements.txt
-
 uvicorn main:app --reload
 ```
 
-## Frontend
+Backend runs at:
+
+```text
+http://127.0.0.1:8000
+```
+
+### Frontend
 
 ```bash
 cd frontend
-
 npm install
-
 npm run dev
 ```
 
----
-
-# Environment Variables
-
-Create a `.env` file:
+Frontend runs at:
 
 ```text
-OPENAI_API_KEY=your_openai_key
-DATABASE_URL=your_database_url
-SECRET_KEY=your_secret_key
+http://localhost:5173
 ```
 
----
+## Deployment Plan
 
-# API Endpoints
+### Frontend
 
-## Authentication
+Deploy React frontend using Vercel or Netlify.
 
-POST /register
+Set this environment variable:
 
-POST /login
+```env
+VITE_API_URL=https://your-backend-url.com
+```
 
----
+### Backend
 
-## Notes
+Deploy FastAPI backend using Render.
 
-GET /notes
+Required setup:
 
-POST /notes
+```text
+Build command:
+pip install -r requirements.txt
 
-PUT /notes/{id}
+Start command:
+uvicorn main:app --host 0.0.0.0 --port $PORT
+```
 
-DELETE /notes/{id}
+### Database
 
----
+Use hosted PostgreSQL such as:
 
-## Documents
+- Render PostgreSQL
+- Neon
+- Supabase
 
-POST /upload-document
+## Screenshots
 
-GET /documents
+Add screenshots here:
 
-DELETE /documents/{id}
+```text
+Login Page
+Dashboard
+Notes Page
+Document Upload
+AI Chat
+Source Cards
+Semantic Search
+```
 
----
+## Future Improvements
 
-## AI
+- Mobile responsive layout
+- Better loading animations
+- Streaming AI responses
+- Persistent source cards in chat history
+- User profile settings
+- Password reset
+- Deployment with production database
+- Improved dashboard analytics
 
-POST /ask-ai
-
-GET /chat-history
-
-DELETE /chat-history
-
----
-
-# Current Features
-
-- Semantic Search
-- RAG
-- Similarity Threshold
-- Markdown Rendering
-- Source Cards
-- Source Preview
-- Chat History
-- Document Upload
-- JWT Authentication
-
----
-
-# Future Improvements
-
-- Confidence Indicator
-- Light/Dark Theme
-- Responsive Mobile Design
-- Streaming AI Responses
-- Docker Deployment
-- Cloud Deployment
-
----
-
-# Author
+## Author
 
 Adaika Obub
 
-Bachelor of Science in Computer Science
+Computer Science graduate and full-stack developer focused on AI-powered applications, backend systems, semantic search, and secure web development.
 
-San Diego State University
+## License
 
----
-
-# License
-
-MIT License
+This project is for learning, portfolio, and demonstration purposes.

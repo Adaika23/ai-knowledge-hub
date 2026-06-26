@@ -52,8 +52,13 @@ Base.metadata.create_all(bind=engine)
 # ================================
 # Security Configuration
 # ================================
-SECRET_KEY = "mysecretkey"
-ALGORITHM = "HS256"
+SECRET_KEY = os.getenv("SECRET_KEY")
+
+ALGORITHM = os.getenv("ALGORITHM")
+
+ACCESS_TOKEN_EXPIRE_MINUTES = int(
+    os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30)
+)
 
 pwd_context = CryptContext(
     schemes=["bcrypt"],
@@ -433,7 +438,7 @@ def semantic_search(
 # ================================
 # 💬 Get Chat History - Protected
 # ================================
-@app.get("/chat/history", response_model=list[ChatResponse])
+@app.get("/chat-history", response_model=list[ChatResponse])
 def get_chat_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -568,22 +573,6 @@ def ask_ai(
         ][:5]
 
         # ================================
-        # Filter Low Similarity Results
-        # ================================
-        MIN_SIMILARITY = 0.30
-
-        scored_items.sort(
-            key=lambda x: x["similarity"],
-            reverse=True
-        )
-
-        top_items = [
-            item
-            for item in scored_items
-            if item["similarity"] >= MIN_SIMILARITY
-        ][:5]
-
-        # ================================
         # No Relevant Sources Found
         # ================================
         if not top_items:
@@ -592,7 +581,7 @@ def ask_ai(
 
             ai_chat = Chat(
                 user_id=current_user.id,
-                sender="assistant",
+                sender="ai",
                 message=answer
             )
 
@@ -966,21 +955,3 @@ def login(
 
 from datetime import datetime
 
-# ================================
-# Save Chat Message
-# ================================
-@app.post("/chat/save")
-def save_chat(data: dict, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-
-    chat = Chat(
-        user_id=current_user.id,
-        sender=data["sender"],   # "user" or "ai"
-        message=data["message"],
-        timestamp=datetime.utcnow()
-    )
-
-    db.add(chat)
-    db.commit()
-    db.refresh(chat)
-
-    return {"message": "saved"}

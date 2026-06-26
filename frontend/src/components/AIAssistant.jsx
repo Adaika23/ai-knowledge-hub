@@ -9,6 +9,7 @@ import { getCurrentTime } from "./utils";
 import {
   USER,
   AI,
+  ASK_AI_BUTTON_LABEL,
   THINKING_TEXT,
   NO_AI_RESPONSE_TEXT,
   AI_CONNECTION_ERROR_TEXT,
@@ -341,7 +342,7 @@ function AIAssistant() {
 
        <div className="ai-actions">
         <button type="submit" disabled={loading}>
-          {loading ? "Thinking..." : "Ask AI"}
+          {loading ? THINKING_TEXT : ASK_AI_BUTTON_LABEL}
         </button>
 
         <button

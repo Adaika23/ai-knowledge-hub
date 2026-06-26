@@ -39,8 +39,9 @@ export const NO_CHAT_DOWNLOAD_TEXT =
 // ================================
 // 🔘 Button Labels
 // ================================
+export const ASK_AI_BUTTON_LABEL = "Ask AI";
 export const COPY_BUTTON_LABEL = "📋 Copy";
 export const JUMP_TO_SOURCE_BUTTON_LABEL = "📍 Jump to Source";
 export const VIEW_FULL_SOURCE_BUTTON_LABEL = "👁 View Full Source";
 export const DOWNLOAD_CHAT_BUTTON_LABEL = "⬇ Download Chat";
-export const CLEAR_CHAT_BUTTON_LABEL = "🗑️ Clear Chat";  
+export const CLEAR_CHAT_BUTTON_LABEL = "🗑️ Clear Chat";

@@ -1,42 +1,26 @@
 import { useState, useRef, useEffect } from "react";
-
-//Background image for login
-import loginBg from "../assets/images/login-bg.jpg";
-
+import { loginUser } from "../api";
 
 // ================================
 // Login Component
 // ================================
-// Receives:
-// onLoginSuccess = opens dashboard after login
-// onCreateAccount = switches to Register screen
 function Login({ onLoginSuccess, onCreateAccount }) {
-  // ================================
-  // State Management
-  // ================================
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  // Automatically focus username field
   const usernameRef = useRef(null);
 
   useEffect(() => {
     usernameRef.current?.focus();
   }, []);
 
-  // ================================
-  // Forgot Password Placeholder
-  // ================================
   const handleForgotPassword = () => {
     alert(
       "Password recovery is not available yet. Please contact the administrator or create a new account."
     );
   };
 
-  // ================================
-  // Handle Login
-  // ================================
   const handleLogin = async (e) => {
     e.preventDefault();
 
@@ -46,24 +30,10 @@ function Login({ onLoginSuccess, onCreateAccount }) {
         return;
       }
 
-      const response = await fetch("http://127.0.0.1:8000/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-
-        body: JSON.stringify({
-          username,
-          password,
-        }),
+      const data = await loginUser({
+        username,
+        password,
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setMessage(data.detail || "Login failed");
-        return;
-      }
 
       sessionStorage.setItem("token", data.token);
 
@@ -73,17 +43,12 @@ function Login({ onLoginSuccess, onCreateAccount }) {
         onLoginSuccess();
       }
     } catch (error) {
-      setMessage("Login failed");
+      setMessage(error.message || "Login failed");
     }
   };
 
-  // ================================
-  // UI
-  // ================================
   return (
-    <div
-      className="login-page"
-    >
+    <div className="login-page">
       <div className="login-card">
         <h2>Login</h2>
 

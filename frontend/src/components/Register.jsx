@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { registerUser } from "./api";
+import { registerUser } from "../api/api";
 
 // ================================
 // Register Component

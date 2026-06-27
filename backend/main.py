@@ -166,6 +166,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "https://ai-knowledge-hub-six.vercel.app",
+        "https://ai-knowledge-hub-git-main-adaika23s-projects.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],

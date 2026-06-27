@@ -1,17 +1,4 @@
-export {
-  loginUser,
-  registerUser,
-  askAI,
-  getNotes,
-  createNote,
-  updateNote,
-  deleteNote,
-  uploadDocument,
-  getDocuments,
-  deleteDocument,
-  getChatHistory,
-  clearChatHistory,
-} from "../api/api";
+
 // ========================================
 // 🌐 Backend API Base URL
 // ========================================

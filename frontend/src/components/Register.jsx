@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { registerUser } from "../api";
 
 // ================================
 // Register Component
@@ -29,43 +30,21 @@ function Register({ onBackToLogin }) {
       }
 
       // Send registration request
-      const response = await fetch(
-        "http://127.0.0.1:8000/register",
-        {
-          method: "POST",
+      const data = await registerUser({
+        username,
+        password,
+      });
 
-          headers: {
-            "Content-Type": "application/json",
-          },
-
-          body: JSON.stringify({
-            username,
-            password,
-          }),
-        }
-      );
-
-      // Convert response
-      const data = await response.json();
-
-      // Handle backend error
-      if (!response.ok) {
-        setMessage(data.detail || "Registration failed");
-        return;
-      }
-
-      // Success
       setMessage(
         data.message ||
         "Account created successfully. Please log in."
       );
 
-      // Clear fields
       setUsername("");
       setPassword("");
 
     } catch (error) {
-      setMessage("Registration failed");
+      setMessage(error.message || "Registration failed");
     }
   };
 

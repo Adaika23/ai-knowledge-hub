@@ -1292,3 +1292,45 @@ section {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+@media (max-width: 768px) {
+  .app-layout {
+    display: flex;
+  }
+
+  .sidebar {
+    width: 90px;
+    min-width: 90px;
+    padding: 20px 10px;
+  }
+
+  .sidebar h1 {
+    font-size: 22px;
+  }
+
+  .sidebar button,
+  .sidebar a,
+  .nav-link {
+    font-size: 14px;
+    padding: 12px 6px;
+    text-align: center;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 16px;
+    width: calc(100% - 90px);
+  }
+
+  .card,
+  .section-card {
+    padding: 24px;
+    border-radius: 18px;
+  }
+
+  input,
+  textarea,
+  button {
+    font-size: 16px;
+  }
+}

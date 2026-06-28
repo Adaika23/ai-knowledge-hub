@@ -267,19 +267,20 @@ function AIAssistant() {
         <h2>🤖 AI Assistant</h2>
 
         <button
-          onClick={downloadChat}
-          style={{
-            padding: "8px 14px",
-            background: "#2563eb",
-            color: "white",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-            fontSize: "14px",
-          }}
-        >
-         {DOWNLOAD_CHAT_BUTTON_LABEL}
-        </button>
+        className="primary-button"
+        onClick={downloadChat}
+        style={{
+          padding: "8px 14px",
+          background: "#2563eb",
+          color: "white",
+          border: "none",
+          borderRadius: "6px",
+          cursor: "pointer",
+          fontSize: "14px",
+        }}
+      >
+        {DOWNLOAD_CHAT_BUTTON_LABEL}
+      </button>
       </div>
 
       <p className="ai-description">
@@ -341,7 +342,11 @@ function AIAssistant() {
        />
 
        <div className="ai-actions">
-        <button type="submit" disabled={loading}>
+        <button
+          type="submit"
+          className="primary-button ask-ai-btn"
+          disabled={loading}
+        >
           {loading ? THINKING_TEXT : ASK_AI_BUTTON_LABEL}
         </button>
 

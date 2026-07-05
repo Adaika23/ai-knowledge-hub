@@ -63,7 +63,7 @@ function Login({ onLoginSuccess, onCreateAccount }) {
         console.error("Login error:", error);
 
         setMessage(
-          error?.message || "Unable to log in. Please try again."
+          error.message || "Unable to sign in. Please try again."
         );
       } finally {
         console.log("Login request finished.");

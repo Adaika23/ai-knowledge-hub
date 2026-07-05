@@ -34,7 +34,11 @@ export async function getNotes() {
   });
 
   if (!response.ok) {
-    throw new Error("Failed to fetch notes");
+    const error = await response.json();
+
+    throw new Error(
+      error.detail || "Invalid username or password."
+    );
   }
 
   return await response.json();
@@ -153,15 +157,18 @@ export async function loginUser(userData) {
     headers: {
       "Content-Type": "application/json",
     },
-
     body: JSON.stringify(userData),
   });
 
+  const data = await response.json();
+
   if (!response.ok) {
-    throw new Error("Login failed");
+    throw new Error(
+      data.detail || "Invalid username or password."
+    );
   }
 
-  return await response.json();
+  return data;
 }
 
 

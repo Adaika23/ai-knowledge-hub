@@ -236,17 +236,17 @@ function Home() {
       {/* Sidebar Navigation */}
       {/* ================================ */}
       <div className="sidebar">
-        <h2>🧠 AI Hub</h2>
+        <h2>🧠 AI Knowledge Hub</h2>
 
         <ul>
-          <li><a href="#home">🏠 Home</a></li>
-          <li><a href="#add-note">➕ Add Note</a></li>
-          <li><a href="#notes">📝 Notes</a></li>
-          <li><a href="#search">🔍 Search</a></li>
-          <li><a href="#semantic-search">🧠 Semantic Search</a></li>
-          <li><a href="#upload-document">📄 Upload Document</a></li>   {/* NEW */}
-          <li><a href="#ai-chat">🤖 AI Chat</a></li>
-          <li><a href="#settings">⚙️ Settings</a></li>
+          <li><a href="#home">🏠 Dashboard</a></li>
+          <li><a href="#add-note">➕ Add Knowledge</a></li>
+          <li><a href="#notes">📝 My Notes</a></li>
+          <li><a href="#search">🔍 Keyword Search</a></li>
+          <li><a href="#semantic-search">🧠 Smart Search</a></li>
+          <li><a href="#upload-document">📄 My Documents</a></li>
+          <li><a href="#ai-chat">🤖 Ask AI</a></li>
+          <li><a href="#settings">⚙️ Account Settings</a></li>
         </ul>
       </div>
 
@@ -261,12 +261,14 @@ function Home() {
           <h1>🧠 AI Knowledge Hub</h1>
 
           <p>
-            Store your knowledge, search instantly, and ask AI questions about
-            your notes, documents, projects, and learning topics.
+            <strong>Your personal AI-powered knowledge workspace.</strong>
+            <br />
+            Save notes, organize documents, search instantly, and get AI-powered
+            answers from your own knowledge base.
           </p>
 
           <div className="hero-actions">
-            <a href="#add-note">➕ Add Note</a>
+            <a href="#add-note">➕ Add Knowledge</a>
             <a href="#ai-chat">🤖 Ask AI</a>
           </div>
         </section>
@@ -275,23 +277,23 @@ function Home() {
         {/* Add Note Section */}
         {/* ================================ */}
         <section id="add-note" className="card section">
-          <h2>Add Note</h2>
+          <h2>➕ Add Knowledge</h2>
 
           <form onSubmit={handleAddNote}>
             <input
               type="text"
-              placeholder="Title"
+              placeholder="Enter a title for your note"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
             />
 
             <textarea
-              placeholder="Content"
+              placeholder="Write or paste your knowledge here..."
               value={content}
               onChange={(event) => setContent(event.target.value)}
             />
 
-            <button type="submit">Add</button>
+            <button type="submit">Save Knowledge</button>
           </form>
         </section>
 
@@ -299,7 +301,7 @@ function Home() {
         {/* Notes Section */}
         {/* ================================ */}
         <section id="notes" className="card section">
-          <h2>Notes</h2>
+          <h2>📝 My Saved Notes</h2>
 
           <NoteList
             notes={notes}
@@ -311,7 +313,7 @@ function Home() {
         {/* Regular Search Section */}
         {/* ================================ */}
         <section id="search" className="card section">
-          <h2>Search</h2>
+          <h2>🔍 Keyword Search</h2>
 
           <form onSubmit={handleSearch}>
             <input
@@ -324,10 +326,10 @@ function Home() {
             <button type="submit">Search</button>
           </form>
 
-          <h3>Search Results</h3>
+          <h3>Matching Notes</h3>
 
           {hasSearched && searchResults.length === 0 && (
-            <p>No results found.</p>
+            <p>No matching notes found. Try a different keyword.</p>
           )}
 
           {searchResults.map((note) => (
@@ -374,7 +376,7 @@ function Home() {
             {darkMode ? "☀️ Switch to Light Mode" : "🌙 Switch to Dark Mode"}
           </button>
 
-          <p>Status: ✅ Logged In</p>
+          <p>Account Status: ✅ Signed in</p>
 
           <button onClick={handleLogout}>
             🚪 Logout

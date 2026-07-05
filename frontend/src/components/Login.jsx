@@ -18,43 +18,58 @@ function Login({ onLoginSuccess, onCreateAccount }) {
   }, []);
 
   const handleForgotPassword = () => {
-    alert(
-      "Password recovery is not available yet. Please contact the administrator or create a new account."
-    );
-  };
+        alert(
+          "Password recovery is not available yet. Please contact the administrator or create a new account."
+        );
+      };
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+      const handleLogin = async (e) => {
+      e.preventDefault();
 
-    if (loading) return;
+      if (loading) return;
 
-    if (!username.trim() || !password.trim()) {
-      setMessage("Please enter both username and password.");
-      return;
-    }
-
-    setLoading(true);
-    setMessage("");
-
-    try {
-      const data = await loginUser({
-        username,
-        password,
-      });
-
-      sessionStorage.setItem("token", data.access_token || data.token);
-
-      setMessage(data.message || "Login successful");
-
-      if (onLoginSuccess) {
-        onLoginSuccess();
+      if (!username.trim() || !password.trim()) {
+        setMessage("Please enter both username and password.");
+        return;
       }
-    } catch (error) {
-      setMessage(error.message || "Login failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+
+      setLoading(true);
+      setMessage("");
+
+      try {
+        console.log("Attempting login...");
+
+        const data = await loginUser({
+          username: username.trim(),
+          password,
+        });
+
+        console.log("Login response:", data);
+
+        const token = data.access_token || data.token;
+
+        if (!token) {
+          throw new Error("No authentication token received from the server.");
+        }
+
+        sessionStorage.setItem("token", token);
+
+        setMessage("Login successful.");
+
+        if (onLoginSuccess) {
+          onLoginSuccess();
+        }
+      } catch (error) {
+        console.error("Login error:", error);
+
+        setMessage(
+          error?.message || "Unable to log in. Please try again."
+        );
+      } finally {
+        console.log("Login request finished.");
+        setLoading(false);
+      }
+    };
 
   return (
     <div className="login-page">

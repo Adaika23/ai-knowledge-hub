@@ -805,3 +805,38 @@ button:disabled {
   color: #1d4ed8;
   background: transparent;
 }
+
+/* ================================ */
+/* Fix password Show/Hide button */
+/* ================================ */
+
+.auth-right .password-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.auth-right .password-wrapper input {
+  width: 100%;
+  padding-right: 70px;
+  box-sizing: border-box;
+}
+
+.auth-right .password-toggle {
+  position: absolute !important;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: auto !important;
+  min-width: auto !important;
+  height: auto !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #2563eb !important;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 2;
+}

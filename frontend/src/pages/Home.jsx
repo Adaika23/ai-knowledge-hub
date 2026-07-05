@@ -258,18 +258,18 @@ function Home() {
         {/* Header Section */}
         {/* ================================ */}
         <section className="card section hero-section">
-        <h1>🧠 AI Knowledge Hub</h1>
+          <h1>🧠 AI Knowledge Hub</h1>
 
-        <p>
-          Store your knowledge, search instantly, and ask AI questions about
-          your notes, documents, projects, and learning topics.
-        </p>
+          <p>
+            Store your knowledge, search instantly, and ask AI questions about
+            your notes, documents, projects, and learning topics.
+          </p>
 
-        <div className="hero-actions">
-          <a href="#add-note">➕ Add Note</a>
-          <a href="#ai-chat">🤖 Ask AI</a>
-        </div>
-      </section>
+          <div className="hero-actions">
+            <a href="#add-note">➕ Add Note</a>
+            <a href="#ai-chat">🤖 Ask AI</a>
+          </div>
+        </section>
 
         {/* ================================ */}
         {/* Add Note Section */}

@@ -591,6 +591,67 @@ button:disabled {
 }
 
 /* =========================================
+   LOGIN MOBILE + LOADING IMPROVEMENTS
+========================================= */
+.login-button {
+  min-height: 52px;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.login-button:active {
+  transform: scale(0.96);
+}
+
+.login-button:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+  background: #94a3b8 !important;
+  box-shadow: none;
+  transform: none;
+}
+
+.auth-message {
+  margin-top: 1rem;
+  text-align: center;
+  font-weight: 600;
+  color: #dc2626;
+}
+
+@media (max-width: 768px) {
+  .auth-page {
+    align-items: flex-start;
+    padding: 1rem;
+  }
+
+  .auth-card {
+    margin-top: 1rem;
+    border-radius: 20px;
+  }
+
+  .auth-left {
+    padding: 2rem;
+  }
+
+  .auth-left h1 {
+    font-size: 2rem;
+  }
+
+  .auth-left p {
+    font-size: 1rem;
+  }
+
+  .auth-right {
+    padding: 2rem;
+  }
+
+  .login-card button,
+  .auth-right button {
+    min-height: 52px;
+    font-size: 16px;
+  }
+}
+
+/* =========================================
    MOBILE RESPONSIVE DESIGN
 ========================================= */
 @media (max-width: 800px) {

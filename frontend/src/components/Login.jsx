@@ -8,6 +8,7 @@ function Login({ onLoginSuccess, onCreateAccount }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const usernameRef = useRef(null);
 
@@ -24,18 +25,23 @@ function Login({ onLoginSuccess, onCreateAccount }) {
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    try {
-      if (!username.trim() || !password.trim()) {
-        setMessage("Please enter both username and password.");
-        return;
-      }
+    if (loading) return;
 
+    if (!username.trim() || !password.trim()) {
+      setMessage("Please enter both username and password.");
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+
+    try {
       const data = await loginUser({
         username,
         password,
       });
 
-      sessionStorage.setItem("token", data.token);
+      sessionStorage.setItem("token", data.access_token || data.token);
 
       setMessage(data.message || "Login successful");
 
@@ -43,7 +49,9 @@ function Login({ onLoginSuccess, onCreateAccount }) {
         onLoginSuccess();
       }
     } catch (error) {
-      setMessage(error.message || "Login failed");
+      setMessage(error.message || "Login failed. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -59,6 +67,7 @@ function Login({ onLoginSuccess, onCreateAccount }) {
             placeholder="Enter username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            disabled={loading}
           />
 
           <input
@@ -66,9 +75,16 @@ function Login({ onLoginSuccess, onCreateAccount }) {
             placeholder="Enter password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            disabled={loading}
           />
 
-          <button type="submit">Login</button>
+          <button
+            className="login-button"
+            type="submit"
+            disabled={loading}
+          >
+            {loading ? "Logging in..." : "Login"}
+          </button>
         </form>
 
         <div className="auth-links">
@@ -76,6 +92,7 @@ function Login({ onLoginSuccess, onCreateAccount }) {
             type="button"
             className="auth-link-button"
             onClick={handleForgotPassword}
+            disabled={loading}
           >
             Forgot Password?
           </button>
@@ -84,6 +101,7 @@ function Login({ onLoginSuccess, onCreateAccount }) {
             type="button"
             className="auth-link-button"
             onClick={onCreateAccount}
+            disabled={loading}
           >
             Create Account
           </button>
